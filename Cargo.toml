@@ -1,0 +1,11 @@
+[package]
+name = "pis"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+nalgebra = "0.34.0"
+rand = "0.9.2"
+rand_distr = "0.5.1"
+
+
