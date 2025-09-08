@@ -1,35 +1,10 @@
-use na::{DVector, Matrix3xX, Vector3};
+use na::{DVector, Vector3};
 use rand_distr::{Distribution, Normal};
-use crate::constants::KB_KJPERMOLEKELVIN;
 
-pub struct Atoms {
-    n_atoms: usize,
-    positions: Matrix3xX<f64>,
-    velocities: Matrix3xX<f64>,
-    forces: Matrix3xX<f64>,
-    masses: DVector<f64>,
-    types: Vec<String>,
-}
+use crate::constants::KB_KJPERMOLEKELVIN;
+use crate::atoms::new::Atoms;
 
 impl Atoms {
-    pub fn new_zeroes(n_atoms: usize) -> Self {
-        Self {
-            n_atoms: n_atoms,
-            positions: Matrix3xX::zeros(n_atoms),
-            velocities: Matrix3xX::zeros(n_atoms),
-            forces: Matrix3xX::zeros(n_atoms),
-            masses: DVector::from_element(n_atoms, 1.0),
-            types: (0..n_atoms).map(|_| String::with_capacity(3)).collect(),
-        }
-    }
-
-    pub fn new(temperature: f64) -> Self {
-        let n_atoms: usize = 10;
-        let mut this = Self::new_zeroes(n_atoms);
-        this.start_velocities(temperature);
-        this
-    }
-
     pub fn start_velocities(&mut self, temperature: f64) {
         self.initialise_velocities(temperature);
         self.remove_drift();
@@ -70,18 +45,5 @@ impl Atoms {
         let lambda = (temperature / current_temerature).sqrt();
 
         self.velocities *= lambda;
-    }
-
-    pub fn kinetic_energy(&self) -> f64 {
-        self.velocities
-            .column_iter()
-            .zip(self.masses.iter())
-            .map(|(velocity, &mass)| 0.5 * mass * velocity.norm_squared())
-            .sum()
-    }
-
-    pub fn current_temerature(&self) -> f64 {
-        let kinetic_energy = self.kinetic_energy();
-        (2.0 * kinetic_energy ) / (3.0 * self.n_atoms as f64 * KB_KJPERMOLEKELVIN)
     }
 }
