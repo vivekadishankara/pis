@@ -56,7 +56,15 @@ impl Atoms {
 
     }
 
-    pub fn run(&mut self, dt: f64, sigma: f64, epsilon: f64, rcut: f64, shift: bool, time_steps: usize) -> DVector<f64> {
+    pub fn run(
+        &mut self, 
+        dt: f64, 
+        sigma: f64, 
+        epsilon: f64, 
+        rcut: f64, 
+        shift: bool, 
+        time_steps: usize
+    ) -> DVector<f64> {
         let mut potential_energies: DVector<f64> = DVector::zeros(time_steps + 1);
         let first_potential = self.compute_potential_and_forces(sigma, epsilon, rcut, shift);
         potential_energies[0] = first_potential;
