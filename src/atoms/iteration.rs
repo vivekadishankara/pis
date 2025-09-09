@@ -38,11 +38,23 @@ impl Atoms {
         potential_energy
     }
 
-    pub fn verlet_step(&mut self, dt: f64, sigma: f64, epsilon: f64, rcut: f64, shift: bool) -> f64 {
+    pub fn verlet_step(
+        &mut self, 
+        dt: f64, 
+        sigma: f64, 
+        epsilon: f64, 
+        rcut: f64, 
+        shift: bool
+    ) -> f64 {
 
         let a_t = self.current_acceleration();
 
         self.positions += &self.velocities * dt + &a_t * 0.5 * dt.powi(2);
+
+        for mut r_i in self.positions.column_iter_mut() {
+            let wrapped_r_i = self.sim_box.apply_boundary_conditions(&r_i.clone_owned());
+            r_i.copy_from(&wrapped_r_i);
+        }
 
         self.forces = Matrix3xX::zeros(self.n_atoms);
 
