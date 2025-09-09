@@ -40,7 +40,8 @@ impl Atoms {
     }
 
     fn rescale_to_temperature(&mut self, temperature: f64) {
-        let current_temerature = self.current_temerature();
+        let kinetic_energy = self.kinetic_energy();
+        let current_temerature = self.current_temerature(kinetic_energy);
 
         let lambda = (temperature / current_temerature).sqrt();
 
