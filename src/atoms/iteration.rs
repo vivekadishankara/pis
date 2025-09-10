@@ -14,7 +14,10 @@ impl Atoms {
 
                 let potential = match self.get_potential_ij(i, j) {
                     Some(pot) => pot,
-                    None => continue,
+                    None => {
+                        println!("During force calculation between {} and {} atoms, potential was missing", i + 1, j + 1);
+                        continue;
+                    }
                 };
                 if rij.norm() > potential.get_rcut() {
                     continue;
