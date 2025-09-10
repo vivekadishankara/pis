@@ -1,0 +1,23 @@
+# Binary LJ mixture with per-pair cutoffs
+
+4 atoms
+2 atom types
+
+0.0 10.0 xlo xhi
+0.0 10.0 ylo yhi
+0.0 10.0 zlo zhi
+
+Masses
+1 1.0
+2 2.0
+
+PairCoeffs
+1 0.5 1.0 2.5    # type 1 self
+2 0.8 1.2 3.0    # type 2 self
+1 2 0.6 1.1 2.8  # cross interaction
+
+Atoms
+1 1 1.0 1.0 1.0
+2 1 2.0 2.0 2.0
+3 2 5.0 5.0 5.0
+4 2 6.0 6.0 6.0
