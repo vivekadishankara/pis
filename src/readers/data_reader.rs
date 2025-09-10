@@ -56,7 +56,6 @@ impl DataReader {
                 }
                 _ => {}
             }
-            println!("{}", section);
 
             if line_split.len() > 1 {
                 match line_split[1] {
