@@ -11,4 +11,7 @@ pub struct Args {
 
     #[arg(short, long, default_value_t = 0.001)]
     pub timestep: f64,
+
+    #[arg(short='T', long, default_value_t = 300.0)]
+    pub temperature: f64,
 }

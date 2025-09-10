@@ -17,8 +17,8 @@ impl Atoms {
         let mut sigma: f64;
         let mut normal: Normal<f64>;
         
-        for (i, a_mass) in self.masses.iter().enumerate() {
-            sigma = (KB_KJPERMOLEKELVIN * temperature / a_mass).sqrt();
+        for i in 0..self.n_atoms {
+            sigma = (KB_KJPERMOLEKELVIN * temperature / self.mass_i(i)).sqrt();
             normal = Normal::new(0.0, sigma).unwrap();
 
             self.velocities[(0, i)] = normal.sample(&mut rng);
@@ -28,9 +28,14 @@ impl Atoms {
     }
 
     fn remove_drift(&mut self) {
-        let total_mass: f64 = self.masses.sum();
-        // (3×n)⋅(n×1)=(3×1)
-        let total_momentum: Vector3<f64> = &self.velocities * &self.masses;
+        let mut total_mass: f64 = 0.0;
+        let mut total_momentum: Vector3<f64> = Vector3::zeros();
+
+        for i in 0..self.n_atoms {
+            let a_mass = self.mass_i(i);
+            total_mass += a_mass;
+            total_momentum += self.velocities.column(i) * a_mass;
+        }
 
         let velocity_cm = total_momentum / total_mass;
 

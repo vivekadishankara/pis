@@ -16,5 +16,7 @@ use crate::readers::data_reader::DataReader;
 fn main() {
     let args = Args::parse();
     let data_reader = DataReader::new(args.infile);
-    let _ = data_reader.read();
+    if let Ok(mut atoms)  = data_reader.read(args.temperature){
+        atoms.run(args.timestep, args.steps);
+    }
 }
