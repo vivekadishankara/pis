@@ -2,15 +2,23 @@ use na::Matrix3xX;
 
 use crate::atoms::new::Atoms;
 use crate::constants::KB_KJPERMOLEKELVIN;
+use crate::potentials::potential::PairPotential;
 
 
 impl Atoms {
+    pub fn mass_i(&self, i: usize) -> f64 {
+        let type_id = self.type_ids[i] - 1;
+        let mass = self.masses[type_id];
+        mass
+    }
+
     pub fn kinetic_energy(&self) -> f64 {
-        self.velocities
-            .column_iter()
-            .zip(self.masses.iter())
-            .map(|(velocity, &mass)| 0.5 * mass * velocity.norm_squared())
-            .sum()
+        let mut ek: f64 = 0.0;
+        for (i, velocity) in self.velocities.column_iter().enumerate() {
+            let mass = self.mass_i(i);
+            ek += 0.5 * mass * velocity.norm_squared();
+        }
+        ek
     }
 
     pub fn current_temerature(&self, kinetic_energy: f64) -> f64 {
@@ -21,8 +29,17 @@ impl Atoms {
         let mut acceleration = Matrix3xX::zeros(self.n_atoms);
         for i in 0..self.n_atoms {
             let mut a_i = acceleration.column_mut(i);
-            a_i += self.forces.column(i) / self.masses[i]; 
+            a_i += self.forces.column(i) / self.mass_i(i);
         }
         acceleration
+    }
+
+    pub fn get_potential_ij(&self, i: usize, j: usize) -> Option<&dyn PairPotential> {
+        let type_i = self.type_ids[i];
+        let type_j = self.type_ids[j];
+
+        let type_tuple = if type_i < type_j {(type_i, type_j)} else {(type_j, type_i)};
+
+        self.potential_manager.get(&type_tuple)
     }
 }

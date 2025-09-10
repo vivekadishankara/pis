@@ -1,5 +1,5 @@
-mass types rather than mass DVector
-data file parsing
+mass types rather than mass DVector ✅ 
+data file parsing ✅  
 generate H matrix from data file entries
 crystal generator with saved unit cells 
 restart files

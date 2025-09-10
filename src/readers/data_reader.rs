@@ -2,6 +2,8 @@ use std::{fs::File, io::{BufRead, BufReader}, usize};
 
 use na::{DVector, Matrix3xX};
 
+use crate::{atoms::new::Atoms, potentials::{lennard_jones::LennardJones, potential::PairPotentialManager}, simulation_box::SimulationBox};
+
 pub struct DataReader {
     infile: String,
 }
@@ -11,13 +13,12 @@ impl DataReader {
         Self { infile }
     }
 
-    pub fn read(&self) -> anyhow::Result<()> {
+    pub fn read(&self, temperature: f64) -> anyhow::Result<Atoms> {
         let file = File::open(&self.infile)?;
         let reader = BufReader::new(file);
 
         let mut section = String::new();
         let mut n_atoms: usize = 0;
-        let mut n_types: usize = 0;
 
         let mut x_bounds: Vec<f64> = Vec::with_capacity(2);
         let mut y_bounds: Vec<f64> = Vec::with_capacity(2);
@@ -28,6 +29,10 @@ impl DataReader {
         let mut type_ids: DVector<usize> = DVector::zeros(0);
         let mut positions: Matrix3xX<f64> = Matrix3xX::zeros(0);
         let mut velocities: Matrix3xX<f64> = Matrix3xX::zeros(0);
+
+        let mut start_velocities = true;
+
+        let mut mgr = PairPotentialManager::new();
 
         for line in reader.lines() {
             let line = line?;
@@ -40,8 +45,13 @@ impl DataReader {
             let line_split: Vec<&str> = line.split_whitespace().collect();
 
             match line_split[0] {
-                "Masses" | "Atoms" | "Velocities" | "PairCoeffs" => {
-                    section = line.to_string();
+                "Masses" | "Atoms" | "PairCoeffs" => {
+                    section = line_split[0].to_string();
+                    continue;
+                },
+                "Velocities" => {
+                    start_velocities = false;
+                    section = line_split[0].to_string();
                     continue;
                 }
                 _ => {}
@@ -58,7 +68,7 @@ impl DataReader {
                         continue;
                     },
                     "atom" => {
-                        n_types = line_split[0].parse()?;
+                        let n_types = line_split[0].parse()?;
                         masses.resize(n_types, 0.0);
                         continue;
                     },
@@ -101,6 +111,25 @@ impl DataReader {
                 },
                 "PairCoeffs" => {
                     let i: usize = line_split[0].parse()?;
+                    if let Ok(epsilon) = line_split[1].parse::<f64>() {
+                        let sigma: f64 = line_split[2].parse()?;
+                        let rcut: f64 = match line_split.get(3) {
+                            Some(rcut_str) => rcut_str.parse::<f64>()?,
+                            None => 2.5 * sigma,
+                        };
+                        let lj_ii = LennardJones::new(epsilon, sigma, rcut, true);
+                        mgr.insert((i,i), lj_ii);
+                    } else {
+                        let j: usize = line_split[1].parse()?;
+                        let epsilon: f64 = line_split[2].parse()?;
+                        let sigma: f64 = line_split[3].parse()?;
+                        let rcut: f64 = match line_split.get(4) {
+                            Some(rcut_str) => rcut_str.parse::<f64>()?,
+                            None => 2.5 * sigma,
+                        };
+                        let lj_ij = LennardJones::new(epsilon, sigma, rcut, true);
+                        mgr.insert((i,j), lj_ij);
+                    }
                     // let mut j: usize;
                     continue;
                 },
@@ -129,9 +158,22 @@ impl DataReader {
                 _ => {},
             }
         }
-        println!("{} {} {:?} {:?} {:?} {} {} {}", n_atoms, n_types, x_bounds, y_bounds, z_bounds, type_ids, positions, velocities);
+        // println!("{} {} {:?} {:?} {:?} {} {} {}", n_atoms, n_types, x_bounds, y_bounds, z_bounds, type_ids, positions, velocities);
+        let mut atoms = Atoms{
+            n_atoms,
+            type_ids,
+            masses,
+            positions,
+            velocities,
+            forces: Matrix3xX::zeros(n_atoms),
+            sim_box: SimulationBox::default(),
+            potential_manager: mgr,
+        };
 
-        Ok(())
+        if start_velocities {
+            atoms.start_velocities(temperature);
+        }
+        Ok(atoms)
     }
     
 }
