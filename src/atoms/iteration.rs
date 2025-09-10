@@ -55,7 +55,7 @@ impl Atoms {
             let wrapped_r_i = self.sim_box.apply_boundary_conditions(&r_i.clone_owned());
             r_i.copy_from(&wrapped_r_i);
         }
-
+        
         self.forces = Matrix3xX::zeros(self.n_atoms);
 
         let potential_energy = self.compute_potential_and_forces(sigma, epsilon, rcut, shift);

@@ -4,6 +4,7 @@ use crate::simulation_box::SimulationBox;
 
 pub struct Atoms {
     pub n_atoms: usize,
+    pub n_types: usize,
     pub positions: Matrix3xX<f64>,
     pub velocities: Matrix3xX<f64>,
     pub forces: Matrix3xX<f64>,
@@ -16,6 +17,7 @@ impl Atoms {
     pub fn default(n_atoms: usize) -> Self {
         Self {
             n_atoms: n_atoms,
+            n_types: 1,
             positions: Matrix3xX::zeros(n_atoms),
             velocities: Matrix3xX::zeros(n_atoms),
             forces: Matrix3xX::zeros(n_atoms),
