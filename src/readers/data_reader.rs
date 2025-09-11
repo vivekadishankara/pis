@@ -20,9 +20,9 @@ impl DataReader {
         let mut section = String::new();
         let mut n_atoms: usize = 0;
 
-        let mut x_bounds: Vec<f64> = Vec::with_capacity(2);
-        let mut y_bounds: Vec<f64> = Vec::with_capacity(2);
-        let mut z_bounds: Vec<f64> = Vec::with_capacity(2);
+        let (mut xlo, mut xhi): (f64, f64) = (0.0, 1.0);
+        let (mut ylo, mut yhi): (f64, f64) = (0.0, 1.0);
+        let (mut zlo, mut zhi): (f64, f64) = (0.0, 1.0);
 
         let mut masses: Vec<f64> = Vec::new();
 
@@ -78,24 +78,18 @@ impl DataReader {
             if line_split.iter().len() > 2 {
                 match line_split[2] {
                     "xlo" => {
-                        x_bounds = line_split[0..2]
-                            .iter()
-                            .map(|value| value.parse::<f64>())
-                            .collect::<Result<Vec<_>, _>>()?;
+                        xlo = line_split[0].parse()?;
+                        xhi = line_split[1].parse()?;
                         continue;
                     },
                     "ylo" => {
-                        y_bounds = line_split[0..2]
-                            .iter()
-                            .map(|value| value.parse::<f64>())
-                            .collect::<Result<Vec<_>, _>>()?;
+                        ylo = line_split[0].parse()?;
+                        yhi = line_split[1].parse()?;
                         continue;
                     },
                     "zlo" => {
-                        z_bounds = line_split[0..2]
-                            .iter()
-                            .map(|value| value.parse::<f64>())
-                            .collect::<Result<Vec<_>, _>>()?;
+                        zlo = line_split[0].parse()?;
+                        zhi = line_split[1].parse()?;
                         continue;
                     },
                     _ => {},
@@ -165,7 +159,7 @@ impl DataReader {
             positions,
             velocities,
             forces: Matrix3xX::zeros(n_atoms),
-            sim_box: SimulationBox::default(),
+            sim_box: SimulationBox::from_lammps_data(xlo, xhi, ylo, yhi, zlo, zhi, 0.0, 0.0, 0.0),
             potential_manager: mgr,
         };
 
