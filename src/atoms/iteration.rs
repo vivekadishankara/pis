@@ -1,6 +1,6 @@
 use na::{DVector, Matrix3xX};
 
-use crate::atoms::new::Atoms;
+use crate::{atoms::new::Atoms, writers::dump_traj::DumpTraj};
 
 
 impl Atoms {
@@ -64,14 +64,18 @@ impl Atoms {
     pub fn run(
         &mut self, 
         dt: f64, 
-        time_steps: usize
+        time_steps: usize,
+        dump_path: &str,
     ) -> DVector<f64> {
         let mut potential_energies: DVector<f64> = DVector::zeros(time_steps + 1);
+        let mut dumper = DumpTraj::new(dump_path).expect("Failed to create dump file");
+        dumper.write_step(self, 0).expect("Failed to write step");
         let first_potential = self.compute_potential_and_forces();
         potential_energies[0] = first_potential;
         for i in 0..time_steps {
             let step_potential = self.verlet_step(dt);
             potential_energies[i + 1] = step_potential;
+            dumper.write_step(self, i + 1).expect("Failed to write step");
         }
         potential_energies
     }

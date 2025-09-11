@@ -7,6 +7,7 @@ mod constants;
 mod math;
 mod simulation_box;
 mod potentials;
+mod writers;
 
 use clap::Parser;
 
@@ -17,6 +18,6 @@ fn main() {
     let args = Args::parse();
     let data_reader = DataReader::new(args.infile);
     if let Ok(mut atoms)  = data_reader.read(args.temperature){
-        atoms.run(args.timestep, args.steps);
+        atoms.run(args.timestep, args.steps, &args.dump_path);
     }
 }
