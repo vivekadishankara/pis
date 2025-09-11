@@ -16,14 +16,6 @@ impl SimulationBox {
         }
     }
 
-    pub fn default() -> Self {
-        Self {
-            h: Matrix3::identity(),
-            h_inv: Matrix3::identity(),
-            pbc: [true; 3],
-        }
-    }
-
     pub fn apply_boundary_conditions(&self, rij: &Vector3<f64>) -> Vector3<f64> {
         let mut s = self.h_inv * rij;
 
@@ -34,5 +26,23 @@ impl SimulationBox {
         }
 
         self.h * s
+    }
+
+    pub fn from_lammps_data(
+        xlo: f64, xhi: f64, 
+        ylo: f64, yhi: f64, 
+        zlo: f64, zhi: f64, 
+        xy: f64, xz: f64, yz: f64
+    ) -> Self {
+        let ax = xhi - xlo;
+        let ay = yhi - ylo;
+        let az = zhi - zlo;
+
+        let a = Vector3::new(ax, 0.0, 0.0);
+        let b = Vector3::new(xy, ay, 0.0);
+        let c = Vector3::new(xz, yz, az);
+
+        let h = Matrix3::from_columns(&[a, b, c]);
+        Self::new(h, [true; 3])
     }
 }
