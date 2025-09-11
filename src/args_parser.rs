@@ -14,4 +14,7 @@ pub struct Args {
 
     #[arg(short='T', long, default_value_t = 300.0)]
     pub temperature: f64,
+
+    #[arg(short, long, default_value_t = String::from("dump.lammpstrj"))]
+    pub dump_path: String,
 }

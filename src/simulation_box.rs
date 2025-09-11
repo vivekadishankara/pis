@@ -1,9 +1,9 @@
 use na::{Matrix3, Vector3};
 
 pub struct SimulationBox {
-    h: Matrix3<f64>,
+    pub h: Matrix3<f64>,
     h_inv: Matrix3<f64>,
-    pbc: [bool; 3],
+    pub pbc: [bool; 3],
 }
 
 impl SimulationBox {
