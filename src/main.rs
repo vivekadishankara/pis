@@ -17,7 +17,10 @@ use crate::readers::data_reader::DataReader;
 fn main() {
     let args = Args::parse();
     let data_reader = DataReader::new(args.infile);
-    if let Ok(mut atoms)  = data_reader.read(args.temperature){
-        atoms.run(args.timestep, args.steps, &args.dump_path);
+    match data_reader.read(args.temperature){
+        Ok(mut atoms) => {
+            atoms.run(args.timestep, args.steps, &args.dump_path);
+        }
+        Err(e) => panic!("Could not run the simulation because of {}", e),
     }
 }

@@ -1,7 +1,9 @@
 mass types rather than mass DVector ✅ 
 data file parsing ✅  
 generate H matrix from data file entries ✅
-write dump files
+write dump files ✅
+fix negative atom positions ✅
+handle pbc from data file
 add verlet cells or neighbor list
 crystal generator with saved unit cells 
 restart files
