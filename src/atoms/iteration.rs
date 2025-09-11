@@ -8,10 +8,9 @@ impl Atoms {
         let mut potential_energy: f64 = 0.0;
         for i in 0..self.n_atoms {
             for j in (i + 1)..self.n_atoms {
-                let rij = self.positions.column(j) - self.positions.column(i);
+                let mut rij = self.positions.column(j) - self.positions.column(i);
 
-                let rij = self.sim_box.apply_boundary_conditions(&rij);
-
+                self.sim_box.apply_boundary_conditions_dis(&mut rij);
                 let potential = match self.get_potential_ij(i, j) {
                     Some(pot) => pot,
                     None => {
@@ -45,9 +44,8 @@ impl Atoms {
 
         self.positions += &self.velocities * dt + &a_t * 0.5 * dt.powi(2);
 
-        for mut r_i in self.positions.column_iter_mut() {
-            let wrapped_r_i = self.sim_box.apply_boundary_conditions(&r_i.clone_owned());
-            r_i.copy_from(&wrapped_r_i);
+        for r_i in self.positions.column_iter_mut() {
+            self.sim_box.apply_boundary_conditions_pos(r_i);
         }
         
         self.forces = Matrix3xX::zeros(self.n_atoms);

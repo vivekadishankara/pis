@@ -1,4 +1,4 @@
-use na::{Matrix3, Vector3};
+use na::{Const, Matrix3, MatrixViewMut, Vector3};
 
 pub struct SimulationBox {
     pub h: Matrix3<f64>,
@@ -16,16 +16,31 @@ impl SimulationBox {
         }
     }
 
-    pub fn apply_boundary_conditions(&self, rij: &Vector3<f64>) -> Vector3<f64> {
-        let mut s = self.h_inv * rij;
-
+    pub fn apply_boundary_conditions_dis(&self, r_ij: &mut Vector3<f64>) {
+        let mut s = self.h_inv * *r_ij;
+        
         for i in 0..3 {
             if self.pbc[i] {
                 s[i] -= s[i].round();
             }
         }
 
-        self.h * s
+        *r_ij = self.h * s;
+    }
+
+    pub fn apply_boundary_conditions_pos<'a>(
+        &self, 
+        mut r_i: MatrixViewMut<'a, f64, Const<3>, Const<1>>
+    ) {
+        let mut s = self.h_inv * &r_i;
+        
+        for i in 0..3 {
+            if self.pbc[i] {
+                s[i] -= s[i].floor();
+            }
+        }
+
+        r_i.copy_from(&(self.h * s));
     }
 
     pub fn from_lammps_data(
