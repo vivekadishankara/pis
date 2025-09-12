@@ -70,10 +70,12 @@ impl Atoms {
         dumper.write_step(self, 0).expect("Failed to write step");
         let first_potential = self.compute_potential_and_forces();
         potential_energies[0] = first_potential;
+        println!("{}", 0);
         for i in 0..time_steps {
             let step_potential = self.verlet_step(dt);
             potential_energies[i + 1] = step_potential;
             dumper.write_step(self, i + 1).expect("Failed to write step");
+            println!("{}", i + 1);
         }
         potential_energies
     }

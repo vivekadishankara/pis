@@ -5,7 +5,7 @@ write dump files ✅
 fix negative atom positions ✅
 handle pbc from data file
 add verlet cells or neighbor list
-crystal generator with saved unit cells 
+crystal generator with saved unit cells ✅
 restart files
 thermostat or NVT
 NPT simulation
