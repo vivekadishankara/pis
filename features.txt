@@ -4,7 +4,8 @@ generate H matrix from data file entries ✅
 write dump files ✅
 fix negative atom positions ✅
 handle pbc from data file
-add verlet cells or neighbor list
+add verlet cells or neighbor list ✅
+add pbc conditions to verlet neighbour list
 crystal generator with saved unit cells ✅
 restart files
 thermostat or NVT

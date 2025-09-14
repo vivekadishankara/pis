@@ -27,4 +27,13 @@ impl PairPotentialManager {
     pub fn get(&self, key: &AtomPair) -> Option<&dyn PairPotential> {
         self.table.get(key).map(|b| b.as_ref())
     }
+
+    pub fn max_rcut(&self) -> f64 {
+        let mut max_rcut = 0.0;
+        for potential in self.table.values() {
+            let rcut = (*potential).get_rcut();
+            if max_rcut < rcut { max_rcut = rcut; }
+        }
+        max_rcut
+    }
 }

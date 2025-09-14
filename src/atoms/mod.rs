@@ -2,3 +2,4 @@ pub mod new;
 pub mod velocities;
 pub mod properties;
 pub mod iteration;
+pub mod neighbour_list;
