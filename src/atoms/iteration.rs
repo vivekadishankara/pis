@@ -11,8 +11,6 @@ impl Atoms {
         let (nx, ny, nz) = self.divide_into_cells(max_rcut);
         let cells = self.rcut_cells(nx, ny, nz);
 
-        // let mut neighbour_cells: HashSet<usize> = HashSet::new();
-
         let cell_indices = Self::cell_indices_for_parallel(nx, ny, nz);
 
         let n_threads = rayon::current_num_threads();
