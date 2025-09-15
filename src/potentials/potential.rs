@@ -1,7 +1,7 @@
 use std::collections::HashMap;
 use na::Vector3;
 
-pub trait PairPotential {
+pub trait PairPotential: Send + Sync {
     fn compute_potetial(&self, rij: &Vector3<f64>) -> (f64, Vector3<f64>);
     fn get_rcut(&self) -> f64;
 }
