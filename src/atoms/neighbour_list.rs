@@ -41,6 +41,19 @@ impl Atoms {
     ) -> usize {
         (cz * ny + cy) * nx + cx
     }
+
+    pub fn cell_indices_for_parallel(nx: usize, ny: usize, nz: usize) -> Vec<(usize, usize, usize)> {
+        let mut indices: Vec<(usize, usize, usize)> = Vec::with_capacity(nx * ny * nz);
+
+        for cx in 0..nx {
+            for cy in 0..ny {
+                for cz in 0..nz {
+                    indices.push((cx, cy,cz));
+                }
+            }
+        }
+        indices
+    }
 }
 
 
