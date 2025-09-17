@@ -23,10 +23,10 @@ fn main() {
             if !try_compute {
                 atoms.run(args.timestep, args.steps, &args.dump_path);
             } else {
-                let pot_serial = atoms.compute_potential_and_forces_n_list();
-                println!("{}", pot_serial);
-                let pot_serial = atoms.compute_potential_and_forces_n_list_parallel();
-                println!("{}", pot_serial);
+                let pot_parallel = atoms.compute_potential_verlet_list_parallel();
+                println!("{}", pot_parallel);
+                let pot_neighbour_list = atoms.compute_potential_neighbour_list_parallel();
+                println!("{}", pot_neighbour_list);
             }
         }
         Err(e) => panic!("Could not run the simulation because of {}", e),
