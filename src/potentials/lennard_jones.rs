@@ -1,6 +1,6 @@
 use na::Vector3;
 
-use crate::potentials::potential::PairPotential;
+use crate::{atoms::new::Atoms, potentials::potential::{PairPotential, PairPotentialManager, PotentialManager, Table}};
 
 pub struct LennardJones {
     epsilon: f64,
@@ -46,5 +46,58 @@ impl PairPotential for LennardJones {
 
     fn get_rcut(&self) -> f64 {
         self.rcut
+    }
+}
+
+pub struct LennardJonesManager {
+    pub table: Table,
+}
+
+impl PotentialManager for LennardJonesManager {
+    fn compute_potential(&self, atoms: &mut Atoms) -> f64 {
+        let mut potential_energy: f64 = 0.0;
+        for i in 0..atoms.n_atoms {
+            for j in (i + 1)..atoms.n_atoms {
+                let mut rij = atoms.positions.column(j) - atoms.positions.column(i);
+
+                atoms.sim_box.apply_boundary_conditions_dis(&mut rij);
+                let potential = match self.get_potential_ij(atoms, i, j) {
+                    Some(pot) => pot,
+                    None => {
+                        println!("During force calculation between {} and {} atoms, potential was missing", i + 1, j + 1);
+                        continue;
+                    }
+                };
+                if rij.norm() > potential.get_rcut() {
+                    continue;
+                }
+
+                let (uij, force_ij) = potential.compute_potetial(&rij);
+
+                potential_energy+= uij;
+                {
+                    let mut fi = atoms.forces.column_mut(i);
+                    fi -= force_ij;
+
+                    let mut fj = atoms.forces.column_mut(j);
+                    fj += force_ij;
+                }
+            }
+        }
+        potential_energy
+    }
+}
+
+impl PairPotentialManager for LennardJonesManager {
+    fn with_table(table: Table) -> Self {
+        Self{ table }
+    }
+
+    fn table(&self) -> &Table {
+        &self.table
+    }
+
+    fn table_mut(&mut self) -> &mut Table {
+        &mut self.table
     }
 }

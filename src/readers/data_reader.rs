@@ -2,7 +2,7 @@ use std::{fs::File, io::{BufRead, BufReader}, usize};
 
 use na::{DVector, Matrix3xX};
 
-use crate::{atoms::new::Atoms, potentials::{lennard_jones::LennardJones, potential::PairPotentialManager}, simulation_box::SimulationBox};
+use crate::{atoms::new::Atoms, potentials::{lennard_jones::{LennardJones}, potential::PairPotentialManager}, simulation_box::SimulationBox};
 
 pub struct DataReader {
     infile: String,
@@ -13,7 +13,7 @@ impl DataReader {
         Self { infile }
     }
 
-    pub fn read(&self, temperature: f64) -> anyhow::Result<Atoms> {
+    pub fn read<T: PairPotentialManager>(&self, temperature: f64) -> anyhow::Result<(Atoms, T)> {
         let file = File::open(&self.infile)?;
         let reader = BufReader::new(file);
 
@@ -32,7 +32,7 @@ impl DataReader {
 
         let mut start_velocities = true;
 
-        let mut mgr = PairPotentialManager::new();
+        let mut mgr = T::new();
 
         for line in reader.lines() {
             let line = line?;
@@ -160,13 +160,12 @@ impl DataReader {
             velocities,
             forces: Matrix3xX::zeros(n_atoms),
             sim_box: SimulationBox::from_lammps_data(xlo, xhi, ylo, yhi, zlo, zhi, 0.0, 0.0, 0.0),
-            potential_manager: mgr,
         };
 
         if start_velocities {
             atoms.start_velocities(temperature);
         }
-        Ok(atoms)
+        Ok((atoms, mgr))
     }
     
 }
