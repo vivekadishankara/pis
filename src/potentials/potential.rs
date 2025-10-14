@@ -1,5 +1,52 @@
 use std::collections::HashMap;
-use na::Vector3;
+use na::{Matrix3xX, Vector3};
+
+use crate::atoms::new::Atoms;
+use crate::writers::dump_traj::DumpTraj;
+
+
+pub trait PotentialManager: Send + Sync {
+    fn compute_potential(&self, atoms: &mut Atoms) -> f64;
+    
+    fn verlet_step_nve(&self, atoms: &mut Atoms, dt: f64) -> f64 {
+
+        let a_t = atoms.current_acceleration();
+
+        atoms.positions += &atoms.velocities * dt + &a_t * 0.5 * dt.powi(2);
+
+        for r_i in atoms.positions.column_iter_mut() {
+            atoms.sim_box.apply_boundary_conditions_pos(r_i);
+        }
+        
+        atoms.forces = Matrix3xX::zeros(atoms.n_atoms);
+
+        let potential_energy = self.compute_potential(atoms);
+
+        let a_tdt = atoms.current_acceleration();
+
+        atoms.velocities += (a_t + a_tdt) * 0.5 * dt;
+
+        potential_energy
+    }
+
+    fn run_nve(
+        &self,
+        atoms: &mut Atoms, 
+        dt: f64, 
+        time_steps: usize,
+        dump_path: &str,
+    ) {
+        let mut dumper = DumpTraj::new(dump_path).expect("Failed to create dump file");
+        dumper.write_step(&atoms, 0).expect("Failed to write step");
+        let first_potential = self.compute_potential(atoms);
+        println!("{} {}", 0, first_potential);
+        for i in 0..time_steps {
+            let step_potential = self.verlet_step_nve(atoms, dt);
+            dumper.write_step(&atoms, i + 1).expect("Failed to write step");
+            println!("{} {}", i + 1, step_potential);
+        }
+    }
+}
 
 pub trait PairPotential: Send + Sync {
     fn compute_potetial(&self, rij: &Vector3<f64>) -> (f64, Vector3<f64>);
@@ -7,33 +54,44 @@ pub trait PairPotential: Send + Sync {
 }
 
 type AtomPair = (usize, usize);
+pub type Table = HashMap<AtomPair, Box<dyn PairPotential>>;
 
-pub struct PairPotentialManager {
-    table: HashMap<AtomPair, Box<dyn PairPotential>>,
-}
+pub trait PairPotentialManager: Sized {
+    fn with_table(table: Table) -> Self;
+    fn table(&self) -> &Table;
+    fn table_mut(&mut self) -> &mut Table;
 
-impl PairPotentialManager {
-    pub fn new() -> Self {
-        Self { table: HashMap::new() }
+    fn new() -> Self {
+        Self::with_table(Table::new())
     }
 
-    pub fn insert<P>(&mut self, key: AtomPair, potential: P) 
+    fn insert<P>(&mut self, key: AtomPair, potential: P) 
     where 
         P: PairPotential + 'static,
     {
-        self.table.insert(key, Box::new(potential));
+        self.table_mut().insert(key, Box::new(potential));
     }
 
-    pub fn get(&self, key: &AtomPair) -> Option<&dyn PairPotential> {
-        self.table.get(key).map(|b| b.as_ref())
+    fn get(&self, key: &AtomPair) -> Option<&dyn PairPotential> {
+        self.table().get(key).map(|b| b.as_ref())
     }
 
-    pub fn max_rcut(&self) -> f64 {
+    #[allow(dead_code)]
+    fn max_rcut(&self) -> f64 {
         let mut max_rcut = 0.0;
-        for potential in self.table.values() {
+        for potential in self.table().values() {
             let rcut = (*potential).get_rcut();
             if max_rcut < rcut { max_rcut = rcut; }
         }
         max_rcut
+    }
+
+    fn get_potential_ij(&self, atoms: &Atoms, i: usize, j: usize) -> Option<&dyn PairPotential> {
+        let type_i = atoms.type_ids[i];
+        let type_j = atoms.type_ids[j];
+
+        let type_tuple = if type_i < type_j {(type_i, type_j)} else {(type_j, type_i)};
+
+        self.get(&type_tuple)
     }
 }

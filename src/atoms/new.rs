@@ -1,6 +1,6 @@
 use na::{DVector, Matrix3xX};
 
-use crate::{potentials::potential::PairPotentialManager, simulation_box::SimulationBox};
+use crate::simulation_box::SimulationBox;
 
 pub struct Atoms {
     pub n_atoms: usize,
@@ -10,5 +10,4 @@ pub struct Atoms {
     pub velocities: Matrix3xX<f64>,
     pub forces: Matrix3xX<f64>,
     pub sim_box: SimulationBox,
-    pub potential_manager: PairPotentialManager,
 }

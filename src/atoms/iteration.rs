@@ -4,6 +4,7 @@ use parking_lot::RwLock;
 use rayon::iter::{IntoParallelIterator, IntoParallelRefIterator, ParallelIterator};
 
 use crate::{atoms::{neighbour_list::FORWARD_NEIGHBOUR_OFFSETS, new::Atoms}, writers::dump_traj::DumpTraj};
+use crate::potentials::potential::PairPotentialManager;
 
 
 impl Atoms {

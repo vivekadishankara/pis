@@ -2,7 +2,6 @@ use na::Matrix3xX;
 
 use crate::atoms::new::Atoms;
 use crate::constants::KB_KJPERMOLEKELVIN;
-use crate::potentials::potential::PairPotential;
 
 
 impl Atoms {
@@ -32,14 +31,5 @@ impl Atoms {
             a_i += self.forces.column(i) / self.mass_i(i);
         }
         acceleration
-    }
-
-    pub fn get_potential_ij(&self, i: usize, j: usize) -> Option<&dyn PairPotential> {
-        let type_i = self.type_ids[i];
-        let type_j = self.type_ids[j];
-
-        let type_tuple = if type_i < type_j {(type_i, type_j)} else {(type_j, type_i)};
-
-        self.potential_manager.get(&type_tuple)
     }
 }
