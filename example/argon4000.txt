@@ -1,17 +1,15 @@
-# Argon box with LJ parameters and cutoff
-
 4000 atoms
 1 atom types
 
-0.0 5.0 xlo xhi
-0.0 5.0 ylo yhi
-0.0 5.0 zlo zhi
+0.0 54.1 xlo xhi
+0.0 54.1 ylo yhi
+0.0 54.1 zlo zhi
 
 Masses
 1 39.948
 
 PairCoeffs
-1 0.238 3.405 8.5   # epsilon sigma cutoff
+1 0.23 3.405 8.5
 
 Atoms
 1 1 0 0 0
