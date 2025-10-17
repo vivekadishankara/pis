@@ -12,14 +12,15 @@ mod writers;
 use clap::Parser;
 
 use crate::args_parser::Args;
-use crate::potentials::lennard_jones::{LennardJonesManager, LennardJonesVerletManager, LennardJonesVerletOffsetManager};
+use crate::potentials::lennard_jones::{LennardJonesManager, LennardJonesVerletManager, LennardJonesVerletOffsetManager,
+    LennardJonesVerletParallelManager};
 use crate::potentials::potential::PotentialManager;
 use crate::readers::data_reader::DataReader;
 
 fn main() {
     let args = Args::parse();
     let data_reader = DataReader::new(args.infile);
-    let potential = "lj_verlet";
+    let potential = "lj_verlet_parallel";
     
     match potential {
         "lj" => {
@@ -45,7 +46,15 @@ fn main() {
                 }
                 Err(e) => panic!("Could not run the simulation because of {}", e),
             }
-        }
+        },
+        "lj_verlet_parallel" => {
+            match data_reader.read::<LennardJonesVerletParallelManager>(args.temperature){
+                Ok((mut atoms, potential_manager)) => {
+                    potential_manager.run_nve(&mut atoms, args.timestep, args.steps, &args.dump_path);
+                }
+                Err(e) => panic!("Could not run the simulation because of {}", e),
+            }
+        },
         _ => panic!("Potential type unknown")
     }
 }
