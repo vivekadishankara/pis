@@ -54,7 +54,7 @@ fn main() {
                 }
                 Err(e) => panic!("Could not run the simulation because of {}", e),
             }
-        }
+        },
         _ => panic!("Potential type unknown")
     }
 }
