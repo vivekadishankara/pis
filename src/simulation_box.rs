@@ -2,7 +2,7 @@ use na::{Const, Matrix3, MatrixViewMut, Vector3};
 
 pub struct SimulationBox {
     pub h: Matrix3<f64>,
-    h_inv: Matrix3<f64>,
+    pub h_inv: Matrix3<f64>,
     pub pbc: [bool; 3],
 }
 
