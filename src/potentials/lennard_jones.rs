@@ -74,6 +74,9 @@ impl PotentialManager for LennardJonesManager {
                 if rij.norm() > potential.get_rcut() {
                     continue;
                 }
+                if i == 0 {
+                    print!("{} {}, ", i, j); // =========================================================
+                }
 
                 let (uij, force_ij) = potential.compute_potential(&rij);
 
@@ -117,7 +120,7 @@ impl PotentialManager for LennardJonesVerletManager {
         let shift = [-1, 0, 1];
         let cells = atoms.rcut_cells(nx, ny, nz);
 
-        let mut neighbour_cells: HashSet<usize> = HashSet::new();
+        let mut neighbour_cells: HashSet<usize> = HashSet::with_capacity(27);
         let mut potential_energy: f64 = 0.0;
 
         for cx_i in 0..nx {
@@ -137,7 +140,6 @@ impl PotentialManager for LennardJonesVerletManager {
                                 let a_neighbour_cell = Atoms::cell_index(cx_j, cy_j, cz_j, nx, ny);
                                 if neighbour_cells.contains(&a_neighbour_cell) { continue; }
                                 neighbour_cells.insert(a_neighbour_cell);
-                                println!("neighbour_cells {a_neighbour_cell}"); // =========================================================
                                 let neighbour_cell_atoms = &cells[a_neighbour_cell];
 
                                 for &i in current_cell_atoms.iter() {
@@ -201,7 +203,7 @@ impl PotentialManager for LennardJonesVerletOffsetManager {
         let (nx, ny, nz) = atoms.divide_into_cells(max_rcut);
         let cells = atoms.rcut_cells(nx, ny, nz);
 
-        let mut neighbour_cells: HashSet<usize> = HashSet::new();
+        let mut neighbour_cells: HashSet<usize> = HashSet::with_capacity(27);
         let mut potential_energy: f64 = 0.0;
 
         for cx_i in 0..nx {

@@ -1,3 +1,5 @@
+
+
 4000 atoms
 1 atom types
 
@@ -9,7 +11,7 @@ Masses
 1 39.948
 
 PairCoeffs
-1 0.23 3.405 8.5
+1 0.238 3.405 8.5
 
 Atoms
 1 1 0 0 0

@@ -9,7 +9,7 @@ impl Atoms {
         let mut cells: Vec<Vec<usize>> = vec![Vec::with_capacity(approx_atoms_per_cell); ncell_total];
 
         for (i, r_i) in self.positions.column_iter().enumerate() {
-            let s_i = self.sim_box.h * r_i;
+            let s_i = self.sim_box.h_inv * r_i;
             let mut cx_i = (s_i[0] * nx as f64).floor() as usize;
             let mut cy_i = (s_i[1] * ny as f64).floor() as usize;
             let mut cz_i = (s_i[2] * nz as f64).floor() as usize;
