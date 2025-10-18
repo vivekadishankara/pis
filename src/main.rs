@@ -12,19 +12,19 @@ mod writers;
 use clap::Parser;
 
 use crate::args_parser::Args;
-use crate::potentials::lennard_jones::{LennardJonesManager, LennardJonesVerletManager, LennardJonesVerletOffsetManager,
-    LennardJonesVerletParallelManager};
+use crate::potentials::lennard_jones::{LJManager, LJVerletManager, LJVOffsetManager,
+    LJVParallelManager, LJVPBuildListManager};
 use crate::potentials::potential::PotentialManager;
 use crate::readers::data_reader::DataReader;
 
 fn main() {
     let args = Args::parse();
     let data_reader = DataReader::new(args.infile);
-    let potential = "lj_verlet_parallel";
+    let potential = "lj_build_list_parallel";
     
     match potential {
         "lj" => {
-            match data_reader.read::<LennardJonesManager>(args.temperature){
+            match data_reader.read::<LJManager>(args.temperature){
                 Ok((mut atoms, potential_manager)) => {
                     potential_manager.run_nve(&mut atoms, args.timestep, args.steps, &args.dump_path);
                 }
@@ -32,7 +32,7 @@ fn main() {
             }
         },
         "lj_verlet" => {
-            match data_reader.read::<LennardJonesVerletManager>(args.temperature){
+            match data_reader.read::<LJVerletManager>(args.temperature){
                 Ok((mut atoms, potential_manager)) => {
                     potential_manager.run_nve(&mut atoms, args.timestep, args.steps, &args.dump_path);
                 }
@@ -40,7 +40,7 @@ fn main() {
             }
         }
         "lj_verlet_offset" => {
-            match data_reader.read::<LennardJonesVerletOffsetManager>(args.temperature){
+            match data_reader.read::<LJVOffsetManager>(args.temperature){
                 Ok((mut atoms, potential_manager)) => {
                     potential_manager.run_nve(&mut atoms, args.timestep, args.steps, &args.dump_path);
                 }
@@ -48,7 +48,15 @@ fn main() {
             }
         },
         "lj_verlet_parallel" => {
-            match data_reader.read::<LennardJonesVerletParallelManager>(args.temperature){
+            match data_reader.read::<LJVParallelManager>(args.temperature){
+                Ok((mut atoms, potential_manager)) => {
+                    potential_manager.run_nve(&mut atoms, args.timestep, args.steps, &args.dump_path);
+                }
+                Err(e) => panic!("Could not run the simulation because of {}", e),
+            }
+        },
+        "lj_build_list_parallel" => {
+            match data_reader.read::<LJVPBuildListManager>(args.temperature){
                 Ok((mut atoms, potential_manager)) => {
                     potential_manager.run_nve(&mut atoms, args.timestep, args.steps, &args.dump_path);
                 }

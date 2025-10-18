@@ -1,7 +1,8 @@
-use std::collections::HashSet;
+use std::{collections::HashSet, sync::Arc, ops::AddAssign,};
 
 use na::{DVector, Matrix3xX, Vector3};
-use rayon::iter::{IntoParallelRefIterator, ParallelIterator};
+use rayon::iter::{IntoParallelIterator, IntoParallelRefIterator, ParallelIterator};
+use parking_lot::RwLock;
 
 use crate::{atoms::new::Atoms, potentials::potential::{PairPotential, PairPotentialManager, PotentialManager, Table}};
 use crate::atoms::neighbour_list::FORWARD_NEIGHBOUR_OFFSETS;
@@ -53,11 +54,11 @@ impl PairPotential for LennardJones {
     }
 }
 
-pub struct LennardJonesManager {
+pub struct LJManager {
     pub table: Table,
 }
 
-impl PotentialManager for LennardJonesManager {
+impl PotentialManager for LJManager {
     fn compute_potential(&self, atoms: &mut Atoms) -> f64 {
         let mut potential_energy: f64 = 0.0;
         for i in 0..atoms.n_atoms {
@@ -92,7 +93,7 @@ impl PotentialManager for LennardJonesManager {
     }
 }
 
-impl PairPotentialManager for LennardJonesManager {
+impl PairPotentialManager for LJManager {
     fn with_table(table: Table) -> Self {
         Self{ table }
     }
@@ -106,11 +107,11 @@ impl PairPotentialManager for LennardJonesManager {
     }
 }
 
-pub struct LennardJonesVerletManager {
+pub struct LJVerletManager {
     pub table: Table,
 }
 
-impl PotentialManager for LennardJonesVerletManager {
+impl PotentialManager for LJVerletManager {
     fn compute_potential (&self, atoms: &mut Atoms) -> f64 {
         let max_rcut = self.max_rcut();
 
@@ -176,7 +177,7 @@ impl PotentialManager for LennardJonesVerletManager {
     }
 }
 
-impl PairPotentialManager for LennardJonesVerletManager {
+impl PairPotentialManager for LJVerletManager {
     fn with_table(table: Table) -> Self {
         Self{ table }
     }
@@ -190,11 +191,11 @@ impl PairPotentialManager for LennardJonesVerletManager {
     }
 }
 
-pub struct LennardJonesVerletOffsetManager {
+pub struct LJVOffsetManager {
     pub table: Table,
 }
 
-impl PotentialManager for LennardJonesVerletOffsetManager {
+impl PotentialManager for LJVOffsetManager {
     fn compute_potential(&self, atoms: &mut Atoms) -> f64 {
         let max_rcut = self.max_rcut();
         let (nx, ny, nz) = atoms.divide_into_cells(max_rcut);
@@ -255,7 +256,7 @@ impl PotentialManager for LennardJonesVerletOffsetManager {
     }
 }
 
-impl PairPotentialManager for LennardJonesVerletOffsetManager {
+impl PairPotentialManager for LJVOffsetManager {
     fn with_table(table: Table) -> Self {
         Self{ table }
     }
@@ -269,11 +270,11 @@ impl PairPotentialManager for LennardJonesVerletOffsetManager {
     }
 }
 
-pub struct LennardJonesVerletParallelManager {
+pub struct LJVParallelManager {
     pub table: Table,
 }
 
-impl PotentialManager for LennardJonesVerletParallelManager {
+impl PotentialManager for LJVParallelManager {
     fn compute_potential(&self, atoms: &mut Atoms) -> f64 {
         let max_rcut = self.max_rcut();
         let (nx, ny, nz) = atoms.divide_into_cells(max_rcut);
@@ -359,7 +360,138 @@ impl PotentialManager for LennardJonesVerletParallelManager {
     }
 }
 
-impl PairPotentialManager for LennardJonesVerletParallelManager {
+impl PairPotentialManager for LJVParallelManager {
+    fn with_table(table: Table) -> Self {
+        Self{ table }
+    }
+
+    fn table(&self) -> &Table {
+        &self.table
+    }
+
+    fn table_mut(&mut self) -> &mut Table {
+        &mut self.table
+    }
+}
+
+pub struct LJVPBuildListManager {
+    pub table: Table,
+}
+
+impl LJVPBuildListManager {
+    pub fn build_neighbour_list(&self, atoms: &mut Atoms) -> Vec<Vec<usize>> {
+        let max_rcut = self.max_rcut();
+        let (nx, ny, nz) = atoms.divide_into_cells(max_rcut);
+        let total_cells = nx * ny * nz;
+        let shift = [-1, 0, 1];
+
+        let cells = atoms.rcut_cells(nx, ny, nz);
+
+        let cell_indices = Atoms::cell_indices_for_parallel(nx, ny, nz);
+
+        let n_threads = rayon::current_num_threads();
+        let neighbour_list_len = (2 * atoms.n_atoms) / total_cells;
+        let thread_neighbour_list: Vec<Vec<usize>> = (0..atoms.n_atoms)
+            .map(|_| Vec::with_capacity(neighbour_list_len))
+            .collect();
+        let thread_neighbour_list = std::sync::Arc::new(parking_lot::RwLock::new(thread_neighbour_list));
+
+        let thread_neighbour_cells: Vec<HashSet<usize>> = (0..n_threads)
+            .map(|_| HashSet::new())
+            .collect();
+        let thread_neighbour_cells = std::sync::Arc::new(parking_lot::RwLock::new(thread_neighbour_cells));
+
+        cell_indices.par_iter().for_each(|&(cx_i, cy_i, cz_i)| {
+            let tid = rayon::current_thread_index().unwrap();
+
+            let mut tnc = thread_neighbour_cells.write();
+            let mut tnl = thread_neighbour_list.write();
+
+            let current_cell = Atoms::cell_index(cx_i, cy_i, cz_i, nx, ny);
+            let current_cell_atoms = &cells[current_cell];
+
+            for &dx in &shift {
+                for &dy in &shift {
+                    for &dz in &shift {
+                        let cx_j = (cx_i as isize + dx).rem_euclid(nx as isize) as usize;
+                        let cy_j = (cy_i as isize + dy).rem_euclid(ny as isize) as usize;
+                        let cz_j = (cz_i as isize + dz).rem_euclid(nz as isize) as usize;
+
+                        let a_neighbour_cell = Atoms::cell_index(cx_j, cy_j, cz_j, nx, ny);
+
+                        if tnc[tid].contains(&a_neighbour_cell) { continue; }
+                        tnc[tid].insert(a_neighbour_cell);
+                        let neighbour_cell_atoms = &cells[a_neighbour_cell];
+
+                        for &i in current_cell_atoms.iter() {
+                            for &j in neighbour_cell_atoms.iter() {
+                                if current_cell == a_neighbour_cell && i==j { continue; }
+                                let mut rij = atoms.positions.column(j) - atoms.positions.column(i);
+                                atoms.sim_box.apply_boundary_conditions_dis(&mut rij);
+
+                                let potential = match self.get_potential_ij(atoms, i, j) {
+                                    Some(pot) => pot,
+                                    None => {
+                                        println!("During force calculation between {} and {} atoms, potential was missing", i + 1, j + 1);
+                                        continue;
+                                    }
+                                };
+                                
+                                if rij.norm() > potential.get_rcut() { continue; }
+                                tnl[i].push(j);
+                            }
+                        }
+                    }
+                }
+                tnc[tid].clear();
+            }
+        });
+        let tnl = thread_neighbour_list.read();
+        tnl.to_vec()
+    }
+}
+
+impl PotentialManager for LJVPBuildListManager {
+    fn compute_potential(&self, atoms: &mut Atoms) -> f64 {
+        let neighbour_list = self.build_neighbour_list(atoms);
+
+        let thread_forces: Matrix3xX<f64> = Matrix3xX::zeros(atoms.n_atoms);
+        let thread_forces = Arc::new(RwLock::new(thread_forces));
+
+        let thread_potential_energy: DVector<f64> = DVector::zeros(atoms.n_atoms);
+        let thread_potential_energy = Arc::new(RwLock::new(thread_potential_energy));
+
+        (0..atoms.n_atoms).into_par_iter().for_each(|i| {
+            let mut tf = thread_forces.write();
+            let mut tpe = thread_potential_energy.write();
+
+            for &j in &neighbour_list[i] {
+                let mut rij = atoms.positions.column(j) - atoms.positions.column(i);
+                atoms.sim_box.apply_boundary_conditions_dis(&mut rij);
+
+                let potential = match self.get_potential_ij(atoms, i, j) {
+                    Some(pot) => pot,
+                    None => {
+                        println!("During force calculation between {} and {} atoms, potential was missing", i + 1, j + 1);
+                        continue;
+                    }
+                };
+
+                let (uij, force_ij) = potential.compute_potential(&rij);
+                tpe[i] += uij;
+                tf.column_mut(i).add_assign(-force_ij);
+            }
+        });
+
+        let tf = thread_forces.read();
+        atoms.forces.copy_from(&*tf);
+
+        let tpe = thread_potential_energy.read();
+        tpe.sum() / 2.0
+    }
+}
+
+impl PairPotentialManager for LJVPBuildListManager {
     fn with_table(table: Table) -> Self {
         Self{ table }
     }
