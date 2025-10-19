@@ -1,17 +1,22 @@
-use std::{fs::File, io::{BufWriter, Write, Result}};
+use std::{
+    fs::File,
+    io::{BufWriter, Result, Write},
+};
 
 use crate::{atoms::new::Atoms, simulation_box::SimulationBox};
 
 pub struct DumpTraj {
-    out: BufWriter<File>
+    out: BufWriter<File>,
 }
 
 impl DumpTraj {
     pub fn new(path: &str) -> Result<Self> {
         let file = File::create(path)?;
-        Ok(DumpTraj{ out: BufWriter::new(file) })
+        Ok(DumpTraj {
+            out: BufWriter::new(file),
+        })
     }
-    
+
     pub fn write_timestep(&mut self, step: usize) -> Result<()> {
         writeln!(self.out, "ITEM: TIMESTEP")?;
         writeln!(self.out, "{}", step)?;
@@ -26,9 +31,9 @@ impl DumpTraj {
 
     pub fn write_bounds(&mut self, sim_box: &SimulationBox) -> Result<()> {
         writeln!(self.out, "ITEM: BOX BOUNDS pp pp pp")?;
-        writeln!(self.out, "{} {}", 0.0, sim_box.h[(0,0)])?;
-        writeln!(self.out, "{} {}", 0.0, sim_box.h[(1,1)])?;
-        writeln!(self.out, "{} {}", 0.0, sim_box.h[(2,2)])?;
+        writeln!(self.out, "{} {}", 0.0, sim_box.h[(0, 0)])?;
+        writeln!(self.out, "{} {}", 0.0, sim_box.h[(1, 1)])?;
+        writeln!(self.out, "{} {}", 0.0, sim_box.h[(2, 2)])?;
         Ok(())
     }
 
@@ -39,8 +44,11 @@ impl DumpTraj {
             writeln!(
                 self.out,
                 "{} {} {} {} {}",
-                i + 1, atoms.type_ids[i], 
-                position[0], position[1], position[2]
+                i + 1,
+                atoms.type_ids[i],
+                position[0],
+                position[1],
+                position[2]
             )?;
         }
         Ok(())

@@ -1,8 +1,16 @@
-use std::{fs::File, io::{BufRead, BufReader}, usize};
+use std::{
+    fs::File,
+    io::{BufRead, BufReader},
+    usize,
+};
 
 use na::{DVector, Matrix3xX};
 
-use crate::{atoms::new::Atoms, potentials::{lennard_jones::{LennardJones}, potential::PairPotentialManager}, simulation_box::SimulationBox};
+use crate::{
+    atoms::new::Atoms,
+    potentials::{lennard_jones::LennardJones, potential::PairPotentialManager},
+    simulation_box::SimulationBox,
+};
 
 pub struct DataReader {
     infile: String,
@@ -48,7 +56,7 @@ impl DataReader {
                 "Masses" | "Atoms" | "PairCoeffs" => {
                     section = line_split[0].to_string();
                     continue;
-                },
+                }
                 "Velocities" => {
                     start_velocities = false;
                     section = line_split[0].to_string();
@@ -62,16 +70,16 @@ impl DataReader {
                     "atoms" => {
                         n_atoms = line_split[0].parse()?;
                         type_ids = DVector::zeros(n_atoms);
-                        positions= Matrix3xX::zeros(n_atoms);
-                        velocities= Matrix3xX::zeros(n_atoms);
+                        positions = Matrix3xX::zeros(n_atoms);
+                        velocities = Matrix3xX::zeros(n_atoms);
                         continue;
-                    },
+                    }
                     "atom" => {
                         let n_types = line_split[0].parse()?;
                         masses.resize(n_types, 0.0);
                         continue;
-                    },
-                    _ => {},
+                    }
+                    _ => {}
                 }
             }
 
@@ -81,18 +89,18 @@ impl DataReader {
                         xlo = line_split[0].parse()?;
                         xhi = line_split[1].parse()?;
                         continue;
-                    },
+                    }
                     "ylo" => {
                         ylo = line_split[0].parse()?;
                         yhi = line_split[1].parse()?;
                         continue;
-                    },
+                    }
                     "zlo" => {
                         zlo = line_split[0].parse()?;
                         zhi = line_split[1].parse()?;
                         continue;
-                    },
-                    _ => {},
+                    }
+                    _ => {}
                 };
             }
 
@@ -101,7 +109,7 @@ impl DataReader {
                     let type_id: usize = line_split[0].parse()?;
                     let mass: f64 = line_split[1].parse()?;
                     masses[type_id - 1] = mass;
-                },
+                }
                 "PairCoeffs" => {
                     let i: usize = line_split[0].parse()?;
                     if let Ok(epsilon) = line_split[1].parse::<f64>() {
@@ -111,7 +119,7 @@ impl DataReader {
                             None => 2.5 * sigma,
                         };
                         let lj_ii = LennardJones::new(epsilon, sigma, rcut, true);
-                        mgr.insert((i,i), lj_ii);
+                        mgr.insert((i, i), lj_ii);
                     } else {
                         let j: usize = line_split[1].parse()?;
                         let epsilon: f64 = line_split[2].parse()?;
@@ -121,11 +129,11 @@ impl DataReader {
                             None => 2.5 * sigma,
                         };
                         let lj_ij = LennardJones::new(epsilon, sigma, rcut, true);
-                        mgr.insert((i,j), lj_ij);
+                        mgr.insert((i, j), lj_ij);
                     }
                     // let mut j: usize;
                     continue;
-                },
+                }
                 "Atoms" => {
                     let mut id: usize = line_split[0].parse()?;
                     id -= 1;
@@ -137,7 +145,7 @@ impl DataReader {
                     positions[(0, id)] = x;
                     positions[(1, id)] = y;
                     positions[(2, id)] = z;
-                },
+                }
                 "Velocities" => {
                     let mut id: usize = line_split[0].parse()?;
                     id -= 1;
@@ -147,12 +155,12 @@ impl DataReader {
                     velocities[(0, id)] = x;
                     velocities[(1, id)] = y;
                     velocities[(2, id)] = z;
-                },
-                _ => {},
+                }
+                _ => {}
             }
         }
         // println!("{} {} {:?} {:?} {:?} {} {} {}", n_atoms, n_types, x_bounds, y_bounds, z_bounds, type_ids, positions, velocities);
-        let mut atoms = Atoms{
+        let mut atoms = Atoms {
             n_atoms,
             type_ids,
             masses,
@@ -167,5 +175,4 @@ impl DataReader {
         }
         Ok((atoms, mgr))
     }
-    
 }

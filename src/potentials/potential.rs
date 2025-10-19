@@ -1,15 +1,13 @@
-use std::collections::HashMap;
 use na::{Matrix3xX, Vector3};
+use std::collections::HashMap;
 
 use crate::atoms::new::Atoms;
 use crate::writers::dump_traj::DumpTraj;
 
-
 pub trait PotentialManager: Send + Sync {
     fn compute_potential(&self, atoms: &mut Atoms) -> f64;
-    
-    fn verlet_step_nve(&self, atoms: &mut Atoms, dt: f64) -> f64 {
 
+    fn verlet_step_nve(&self, atoms: &mut Atoms, dt: f64) -> f64 {
         let a_t = atoms.current_acceleration();
 
         atoms.positions += &atoms.velocities * dt + &a_t * 0.5 * dt.powi(2);
@@ -17,7 +15,7 @@ pub trait PotentialManager: Send + Sync {
         for r_i in atoms.positions.column_iter_mut() {
             atoms.sim_box.apply_boundary_conditions_pos(r_i);
         }
-        
+
         atoms.forces = Matrix3xX::zeros(atoms.n_atoms);
 
         let potential_energy = self.compute_potential(atoms);
@@ -29,20 +27,16 @@ pub trait PotentialManager: Send + Sync {
         potential_energy
     }
 
-    fn run_nve(
-        &self,
-        atoms: &mut Atoms, 
-        dt: f64, 
-        time_steps: usize,
-        dump_path: &str,
-    ) {
+    fn run_nve(&self, atoms: &mut Atoms, dt: f64, time_steps: usize, dump_path: &str) {
         let mut dumper = DumpTraj::new(dump_path).expect("Failed to create dump file");
         dumper.write_step(&atoms, 0).expect("Failed to write step");
         let first_potential = self.compute_potential(atoms);
         println!("{} {}", 0, first_potential);
         for i in 0..time_steps {
             let step_potential = self.verlet_step_nve(atoms, dt);
-            dumper.write_step(&atoms, i + 1).expect("Failed to write step");
+            dumper
+                .write_step(&atoms, i + 1)
+                .expect("Failed to write step");
             println!("{} {}", i + 1, step_potential);
         }
     }
@@ -65,8 +59,8 @@ pub trait PairPotentialManager: Sized {
         Self::with_table(Table::new())
     }
 
-    fn insert<P>(&mut self, key: AtomPair, potential: P) 
-    where 
+    fn insert<P>(&mut self, key: AtomPair, potential: P)
+    where
         P: PairPotential + 'static,
     {
         self.table_mut().insert(key, Box::new(potential));
@@ -81,7 +75,9 @@ pub trait PairPotentialManager: Sized {
         let mut max_rcut = 0.0;
         for potential in self.table().values() {
             let rcut = (*potential).get_rcut();
-            if max_rcut < rcut { max_rcut = rcut; }
+            if max_rcut < rcut {
+                max_rcut = rcut;
+            }
         }
         max_rcut
     }
@@ -90,7 +86,11 @@ pub trait PairPotentialManager: Sized {
         let type_i = atoms.type_ids[i];
         let type_j = atoms.type_ids[j];
 
-        let type_tuple = if type_i < type_j {(type_i, type_j)} else {(type_j, type_i)};
+        let type_tuple = if type_i < type_j {
+            (type_i, type_j)
+        } else {
+            (type_j, type_i)
+        };
 
         self.get(&type_tuple)
     }

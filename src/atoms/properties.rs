@@ -3,7 +3,6 @@ use na::Matrix3xX;
 use crate::atoms::new::Atoms;
 use crate::constants::KB_KJPERMOLEKELVIN;
 
-
 impl Atoms {
     pub fn mass_i(&self, i: usize) -> f64 {
         let type_id = self.type_ids[i] - 1;
@@ -21,7 +20,7 @@ impl Atoms {
     }
 
     pub fn current_temerature(&self, kinetic_energy: f64) -> f64 {
-        (2.0 * kinetic_energy ) / (3.0 * self.n_atoms as f64 * KB_KJPERMOLEKELVIN)
+        (2.0 * kinetic_energy) / (3.0 * self.n_atoms as f64 * KB_KJPERMOLEKELVIN)
     }
 
     pub fn current_acceleration(&self) -> Matrix3xX<f64> {
