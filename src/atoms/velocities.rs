@@ -1,8 +1,8 @@
 use na::{DVector, Vector3};
 use rand_distr::{Distribution, Normal};
 
-use crate::constants::KB_KJPERMOLEKELVIN;
 use crate::atoms::new::Atoms;
+use crate::constants::KB_KJPERMOLEKELVIN;
 
 impl Atoms {
     pub fn start_velocities(&mut self, temperature: f64) {
@@ -16,7 +16,7 @@ impl Atoms {
 
         let mut sigma: f64;
         let mut normal: Normal<f64>;
-        
+
         for i in 0..self.n_atoms {
             sigma = (KB_KJPERMOLEKELVIN * temperature / self.mass_i(i)).sqrt();
             normal = Normal::new(0.0, sigma).unwrap();
@@ -24,7 +24,7 @@ impl Atoms {
             self.velocities[(0, i)] = normal.sample(&mut rng);
             self.velocities[(1, i)] = normal.sample(&mut rng);
             self.velocities[(2, i)] = normal.sample(&mut rng);
-        }        
+        }
     }
 
     fn remove_drift(&mut self) {

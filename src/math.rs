@@ -3,7 +3,7 @@
 pub trait ApproxEqual {
     type Epsilon: Copy;
     fn approx_eq(&self, other: Self, eps: Self::Epsilon) -> bool;
-    fn default_epsilon() -> Self::Epsilon;  
+    fn default_epsilon() -> Self::Epsilon;
 }
 
 impl ApproxEqual for f64 {
@@ -28,7 +28,8 @@ pub fn all_equal_with_epsilon<T: ApproxEqual + Copy>(slice: &[T], eps: T::Epsilo
 pub fn all_equal<T: ApproxEqual + Copy>(slice: &[T]) -> bool {
     match slice.first() {
         None => true,
-        Some(&first) => slice.iter().all(|&x| x.approx_eq(first, T::default_epsilon()))
-        
+        Some(&first) => slice
+            .iter()
+            .all(|&x| x.approx_eq(first, T::default_epsilon())),
     }
 }

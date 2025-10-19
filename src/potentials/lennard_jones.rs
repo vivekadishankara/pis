@@ -1,11 +1,14 @@
-use std::{collections::HashSet, sync::Arc, ops::AddAssign,};
+use std::{collections::HashSet, ops::AddAssign, sync::Arc};
 
 use na::{DVector, Matrix3xX, Vector3};
-use rayon::iter::{IntoParallelIterator, IntoParallelRefIterator, ParallelIterator};
 use parking_lot::RwLock;
+use rayon::iter::{IntoParallelIterator, IntoParallelRefIterator, ParallelIterator};
 
-use crate::{atoms::new::Atoms, potentials::potential::{PairPotential, PairPotentialManager, PotentialManager, Table}};
 use crate::atoms::neighbour_list::FORWARD_NEIGHBOUR_OFFSETS;
+use crate::{
+    atoms::new::Atoms,
+    potentials::potential::{PairPotential, PairPotentialManager, PotentialManager, Table},
+};
 
 pub struct LennardJones {
     epsilon: f64,
@@ -20,7 +23,7 @@ impl LennardJones {
             epsilon,
             sigma,
             rcut,
-            shift
+            shift,
         }
     }
 }
@@ -34,7 +37,8 @@ impl PairPotential for LennardJones {
 
         let mut potential_energy = 4.0 * self.epsilon * (lj_repulsion - vanderwaals_attraction);
 
-        let force = 24.0 * self.epsilon * (2.0 * lj_repulsion - vanderwaals_attraction) * inv_rij2 * rij;
+        let force =
+            24.0 * self.epsilon * (2.0 * lj_repulsion - vanderwaals_attraction) * inv_rij2 * rij;
 
         if self.shift {
             let cutoff_inv2 = (self.sigma / self.rcut).powi(2);
@@ -79,7 +83,7 @@ impl PotentialManager for LJManager {
 
                 let (uij, force_ij) = potential.compute_potential(&rij);
 
-                potential_energy+= uij;
+                potential_energy += uij;
                 {
                     let mut fi = atoms.forces.column_mut(i);
                     fi -= force_ij;
@@ -95,7 +99,7 @@ impl PotentialManager for LJManager {
 
 impl PairPotentialManager for LJManager {
     fn with_table(table: Table) -> Self {
-        Self{ table }
+        Self { table }
     }
 
     fn table(&self) -> &Table {
@@ -112,7 +116,7 @@ pub struct LJVerletManager {
 }
 
 impl PotentialManager for LJVerletManager {
-    fn compute_potential (&self, atoms: &mut Atoms) -> f64 {
+    fn compute_potential(&self, atoms: &mut Atoms) -> f64 {
         let max_rcut = self.max_rcut();
 
         let (nx, ny, nz) = atoms.divide_into_cells(max_rcut);
@@ -136,25 +140,32 @@ impl PotentialManager for LJVerletManager {
                                 let cz_j = (cz_i as isize + dz).rem_euclid(nz as isize) as usize;
 
                                 let a_neighbour_cell = Atoms::cell_index(cx_j, cy_j, cz_j, nx, ny);
-                                if neighbour_cells.contains(&a_neighbour_cell) { continue; }
+                                if neighbour_cells.contains(&a_neighbour_cell) {
+                                    continue;
+                                }
                                 neighbour_cells.insert(a_neighbour_cell);
                                 let neighbour_cell_atoms = &cells[a_neighbour_cell];
 
                                 for &i in current_cell_atoms.iter() {
                                     for &j in neighbour_cell_atoms.iter() {
-                                        if i <= j { continue; }
-                                        let mut rij = atoms.positions.column(j) - atoms.positions.column(i);
+                                        if i <= j {
+                                            continue;
+                                        }
+                                        let mut rij =
+                                            atoms.positions.column(j) - atoms.positions.column(i);
                                         atoms.sim_box.apply_boundary_conditions_dis(&mut rij);
 
-                                        let potential = match self.get_potential_ij(atoms, i,j) {
+                                        let potential = match self.get_potential_ij(atoms, i, j) {
                                             Some(pot) => pot,
                                             None => {
                                                 println!("During force calculation between {} and {} atoms, potential was missing", i + 1, j + 1);
                                                 continue;
-                                            }                                            
+                                            }
                                         };
 
-                                        if rij.norm() > potential.get_rcut() { continue; }
+                                        if rij.norm() > potential.get_rcut() {
+                                            continue;
+                                        }
                                         let (uij, force_ij) = potential.compute_potential(&rij);
                                         potential_energy += uij;
                                         {
@@ -179,7 +190,7 @@ impl PotentialManager for LJVerletManager {
 
 impl PairPotentialManager for LJVerletManager {
     fn with_table(table: Table) -> Self {
-        Self{ table }
+        Self { table }
     }
 
     fn table(&self) -> &Table {
@@ -216,26 +227,32 @@ impl PotentialManager for LJVOffsetManager {
                         let cz_j = (cz_i as isize + offset.dz).rem_euclid(nz as isize) as usize;
 
                         let a_neighbour_cell = Atoms::cell_index(cx_j, cy_j, cz_j, nx, ny);
-                        if neighbour_cells.contains(&a_neighbour_cell) { continue; }
+                        if neighbour_cells.contains(&a_neighbour_cell) {
+                            continue;
+                        }
                         neighbour_cells.insert(a_neighbour_cell);
 
                         let neighbour_cell_atoms = &cells[a_neighbour_cell];
 
                         for &i in current_cell_atoms.iter() {
                             for &j in neighbour_cell_atoms.iter() {
-                                if current_cell == a_neighbour_cell && i<=j { continue; }
+                                if current_cell == a_neighbour_cell && i <= j {
+                                    continue;
+                                }
                                 let mut rij = atoms.positions.column(j) - atoms.positions.column(i);
                                 atoms.sim_box.apply_boundary_conditions_dis(&mut rij);
 
-                                let potential = match self.get_potential_ij(atoms, i,j) {
+                                let potential = match self.get_potential_ij(atoms, i, j) {
                                     Some(pot) => pot,
                                     None => {
                                         println!("During force calculation between {} and {} atoms, potential was missing", i + 1, j + 1);
                                         continue;
-                                    }                                            
+                                    }
                                 };
 
-                                if rij.norm() > potential.get_rcut() { continue; }
+                                if rij.norm() > potential.get_rcut() {
+                                    continue;
+                                }
                                 let (uij, force_ij) = potential.compute_potential(&rij);
                                 potential_energy += uij;
                                 {
@@ -258,7 +275,7 @@ impl PotentialManager for LJVOffsetManager {
 
 impl PairPotentialManager for LJVOffsetManager {
     fn with_table(table: Table) -> Self {
-        Self{ table }
+        Self { table }
     }
 
     fn table(&self) -> &Table {
@@ -290,12 +307,13 @@ impl PotentialManager for LJVParallelManager {
         let thread_forces = std::sync::Arc::new(parking_lot::RwLock::new(thread_forces));
 
         let thread_potential_energy: DVector<f64> = DVector::zeros(n_threads);
-        let thread_potential_energy = std::sync::Arc::new(parking_lot::RwLock::new(thread_potential_energy));
+        let thread_potential_energy =
+            std::sync::Arc::new(parking_lot::RwLock::new(thread_potential_energy));
 
-        let thread_neighbour_cells: Vec<HashSet<usize>> = (0..n_threads)
-            .map(|_| HashSet::new())
-            .collect();
-        let thread_neighbour_cells = std::sync::Arc::new(parking_lot::RwLock::new(thread_neighbour_cells));
+        let thread_neighbour_cells: Vec<HashSet<usize>> =
+            (0..n_threads).map(|_| HashSet::new()).collect();
+        let thread_neighbour_cells =
+            std::sync::Arc::new(parking_lot::RwLock::new(thread_neighbour_cells));
 
         cell_indices.par_iter().for_each(|&(cx_i, cy_i, cz_i)| {
             let tid = rayon::current_thread_index().unwrap();
@@ -329,7 +347,7 @@ impl PotentialManager for LJVParallelManager {
                                 continue;
                             }
                         };
-                        
+
                         if rij.norm() > potential.get_rcut() { continue; }
 
                         let (uij, force_ij) = potential.compute_potential(&rij);
@@ -353,16 +371,15 @@ impl PotentialManager for LJVParallelManager {
         for i in 0..n_threads {
             atoms.forces += &tf[i];
         }
-        
+
         let tpe = thread_potential_energy.read();
         tpe.sum()
-
     }
 }
 
 impl PairPotentialManager for LJVParallelManager {
     fn with_table(table: Table) -> Self {
-        Self{ table }
+        Self { table }
     }
 
     fn table(&self) -> &Table {
@@ -394,12 +411,13 @@ impl LJVPBuildListManager {
         let thread_neighbour_list: Vec<Vec<usize>> = (0..atoms.n_atoms)
             .map(|_| Vec::with_capacity(neighbour_list_len))
             .collect();
-        let thread_neighbour_list = std::sync::Arc::new(parking_lot::RwLock::new(thread_neighbour_list));
+        let thread_neighbour_list =
+            std::sync::Arc::new(parking_lot::RwLock::new(thread_neighbour_list));
 
-        let thread_neighbour_cells: Vec<HashSet<usize>> = (0..n_threads)
-            .map(|_| HashSet::new())
-            .collect();
-        let thread_neighbour_cells = std::sync::Arc::new(parking_lot::RwLock::new(thread_neighbour_cells));
+        let thread_neighbour_cells: Vec<HashSet<usize>> =
+            (0..n_threads).map(|_| HashSet::new()).collect();
+        let thread_neighbour_cells =
+            std::sync::Arc::new(parking_lot::RwLock::new(thread_neighbour_cells));
 
         cell_indices.par_iter().for_each(|&(cx_i, cy_i, cz_i)| {
             let tid = rayon::current_thread_index().unwrap();
@@ -436,7 +454,7 @@ impl LJVPBuildListManager {
                                         continue;
                                     }
                                 };
-                                
+
                                 if rij.norm() > potential.get_rcut() { continue; }
                                 tnl[i].push(j);
                             }
@@ -493,7 +511,7 @@ impl PotentialManager for LJVPBuildListManager {
 
 impl PairPotentialManager for LJVPBuildListManager {
     fn with_table(table: Table) -> Self {
-        Self{ table }
+        Self { table }
     }
 
     fn table(&self) -> &Table {
