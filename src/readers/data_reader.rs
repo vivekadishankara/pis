@@ -159,7 +159,7 @@ impl DataReader {
                 _ => {}
             }
         }
-        // println!("{} {} {:?} {:?} {:?} {} {} {}", n_atoms, n_types, x_bounds, y_bounds, z_bounds, type_ids, positions, velocities);
+
         let mut atoms = Atoms {
             n_atoms,
             type_ids,
