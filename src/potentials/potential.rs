@@ -1,5 +1,5 @@
-use na::{Matrix3xX, Vector3};
 use core::panic;
+use na::{Matrix3xX, Vector3};
 use std::collections::HashMap;
 
 use crate::atoms::new::Atoms;
@@ -29,7 +29,12 @@ pub trait PotentialManager: Send + Sync {
         potential_energy
     }
 
-    fn verlet_step_nvt_nhc(&self, atoms: &mut Atoms, dt: f64, noose_hoover_chain: &mut NooseHooverChain) -> f64 {
+    fn verlet_step_nvt_nhc(
+        &self,
+        atoms: &mut Atoms,
+        dt: f64,
+        noose_hoover_chain: &mut NooseHooverChain,
+    ) -> f64 {
         let mut kinetic_energy = atoms.kinetic_energy();
 
         noose_hoover_chain.compute_forces(kinetic_energy, atoms.n_atoms);
@@ -45,7 +50,7 @@ pub trait PotentialManager: Send + Sync {
 
         noose_hoover_chain.compute_forces(kinetic_energy, atoms.n_atoms);
         noose_hoover_chain.propagate_half_step(dt);
-        
+
         potential_energy
     }
 
@@ -60,7 +65,6 @@ pub trait PotentialManager: Send + Sync {
         let mut noose_hoover_chain = NooseHooverChain::new(5.0, 100.0, 3);
 
         for i in 0..time_steps {
-            // let step_potential = self.verlet_step_nvt_nhc(atoms, dt, &mut noose_hoover_chain);
             let step_potential = match ensemble {
                 "nve" => self.verlet_step_nve(atoms, dt),
                 "nvt" => self.verlet_step_nvt_nhc(atoms, dt, &mut noose_hoover_chain),
@@ -74,11 +78,22 @@ pub trait PotentialManager: Send + Sync {
             let basic_hamiltonian = step_potential + kinetic_energy;
             let hamiltonian = match ensemble {
                 "nve" => basic_hamiltonian,
-                "nvt" => basic_hamiltonian + noose_hoover_chain.kinetic_energy() + noose_hoover_chain.potential_energy(atoms.n_atoms),
+                "nvt" => {
+                    basic_hamiltonian
+                        + noose_hoover_chain.kinetic_energy()
+                        + noose_hoover_chain.potential_energy(atoms.n_atoms)
+                }
                 _ => panic!("Ensemble unknown"),
             };
             let temperature = atoms.current_temerature(kinetic_energy);
-            println!("{} {:.3} {:.3} {:.3} {:.3}", i + 1, step_potential, kinetic_energy, hamiltonian, temperature);
+            println!(
+                "{} {:.3} {:.3} {:.3} {:.3}",
+                i + 1,
+                step_potential,
+                kinetic_energy,
+                hamiltonian,
+                temperature
+            );
         }
     }
 }

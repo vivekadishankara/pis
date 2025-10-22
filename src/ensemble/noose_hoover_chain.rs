@@ -40,11 +40,13 @@ impl NooseHooverChain {
     // Compute generalized thermostat forces
     pub fn compute_forces(&mut self, kinetic_energy: f64, n_atoms: usize) {
         // G1​= 2K − Ndof ​kB ​T
-        self.g[0] = 2.0 * kinetic_energy - ((n_atoms * 3) as f64) * KB_KJPERMOLEKELVIN * self.target_temp;
+        self.g[0] =
+            2.0 * kinetic_energy - ((n_atoms * 3) as f64) * KB_KJPERMOLEKELVIN * self.target_temp;
 
         for j in 1..self.chain_size {
             // Gj ​= Q(j−1) ​ξ(j−1)^2​ − kB​ T for j≥2
-            self.g[j] = self.q[j - 1] * self.xi[j - 1].powi(2) - KB_KJPERMOLEKELVIN * self.target_temp;
+            self.g[j] =
+                self.q[j - 1] * self.xi[j - 1].powi(2) - KB_KJPERMOLEKELVIN * self.target_temp;
         }
     }
 
@@ -54,7 +56,8 @@ impl NooseHooverChain {
         self.xi[j] = 0.5 * timestep * self.g[j] / self.q[j];
 
         for l in (0..j).rev() {
-            self.xi[l] = (0.5 * timestep * self.g[l] / self.q[l]) * (-0.25 * timestep * self.xi[l + 1]).exp();
+            self.xi[l] = (0.5 * timestep * self.g[l] / self.q[l])
+                * (-0.25 * timestep * self.xi[l + 1]).exp();
         }
     }
 
@@ -67,7 +70,8 @@ impl NooseHooverChain {
     }
 
     pub fn potential_energy(&self, n_atoms: usize) -> f64 {
-        let mut thermostat_pe = (n_atoms * 3) as f64 * KB_KJPERMOLEKELVIN * self.target_temp * self.eta[0];
+        let mut thermostat_pe =
+            (n_atoms * 3) as f64 * KB_KJPERMOLEKELVIN * self.target_temp * self.eta[0];
         for i in 1..self.chain_size {
             thermostat_pe += KB_KJPERMOLEKELVIN * self.target_temp * self.eta[i];
         }

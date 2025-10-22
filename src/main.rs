@@ -52,12 +52,7 @@ fn main() {
         "lj_build_list_parallel" => {
             match data_reader.read::<LJVPBuildListManager>(args.temperature) {
                 Ok((mut atoms, potential_manager)) => {
-                    potential_manager.run(
-                        &mut atoms,
-                        args.timestep,
-                        args.steps,
-                        &args.dump_path,
-                    );
+                    potential_manager.run(&mut atoms, args.timestep, args.steps, &args.dump_path);
                 }
                 Err(e) => panic!("Could not run the simulation because of {}", e),
             }
