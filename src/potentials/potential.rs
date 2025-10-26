@@ -3,7 +3,9 @@ use na::{Matrix3xX, Vector3};
 use std::collections::HashMap;
 
 use crate::atoms::new::Atoms;
-use crate::ensemble::noose_hoover_chain::NooseHooverChain;
+use crate::ensemble::npt::MTKBarostat;
+use crate::ensemble::nvt::NHThermostatChain;
+use crate::math::{symmetrize, mat_exp_taylor};
 use crate::writers::dump_traj::DumpTraj;
 
 pub trait PotentialManager: Send + Sync {
@@ -33,7 +35,7 @@ pub trait PotentialManager: Send + Sync {
         &self,
         atoms: &mut Atoms,
         dt: f64,
-        noose_hoover_chain: &mut NooseHooverChain,
+        noose_hoover_chain: &mut NHThermostatChain,
     ) -> f64 {
         let mut kinetic_energy = atoms.kinetic_energy();
 
@@ -54,6 +56,32 @@ pub trait PotentialManager: Send + Sync {
         potential_energy
     }
 
+    fn verlet_step_npt_mtk(&self, atoms: &mut Atoms, dt: f64, mtk_barostat: &mut MTKBarostat, noose_hoover_chain: &mut NHThermostatChain) {
+        let mut kinetic_energy = atoms.kinetic_energy();
+        let mut instant_pressure = atoms.pressure_tensor();
+
+        let delta_momentum = atoms.sim_box.volume() * (instant_pressure - mtk_barostat.target_pressure) * 0.5 * dt;
+        mtk_barostat.momentum += symmetrize(&delta_momentum);
+
+        let mut eta_dot = mtk_barostat.momentum / mtk_barostat.w;
+        eta_dot = symmetrize(&eta_dot);
+        let mut scale = mat_exp_taylor(&(-eta_dot * 0.5 * dt));
+
+        atoms.velocities = &scale * &atoms.velocities;
+
+        self.verlet_step_nvt_nhc(atoms, dt, noose_hoover_chain);
+
+        mtk_barostat.eta += eta_dot * dt;
+        scale = (-eta_dot * 0.5 * dt / 3.0).exp();
+
+        atoms.velocities = &atoms.velocities * scale;
+
+        kinetic_energy = atoms.kinetic_energy();
+        instant_pressure = atoms.pressure_tensor();
+
+        mtk_barostat.momentum += atoms.sim_box.volume() * (instant_pressure - mtk_barostat.target_pressure) * 0.5 * dt;
+    }
+
     fn run(&self, atoms: &mut Atoms, dt: f64, time_steps: usize, dump_path: &str) {
         let mut dumper = DumpTraj::new(dump_path).expect("Failed to create dump file");
         dumper.write_step(&atoms, 0).expect("Failed to write step");
@@ -62,7 +90,7 @@ pub trait PotentialManager: Send + Sync {
 
         let ensemble = "nvt";
 
-        let mut noose_hoover_chain = NooseHooverChain::new(5.0, 100.0, 3);
+        let mut noose_hoover_chain = NHThermostatChain::new(5.0, 100.0, 3);
 
         for i in 0..time_steps {
             let step_potential = match ensemble {
@@ -85,14 +113,17 @@ pub trait PotentialManager: Send + Sync {
                 }
                 _ => panic!("Ensemble unknown"),
             };
-            let temperature = atoms.current_temerature(kinetic_energy);
+            let temperature = atoms.temerature(kinetic_energy);
+            let pressure = atoms.pressure(kinetic_energy);
+
             println!(
-                "{} {:.3} {:.3} {:.3} {:.3}",
+                "{} {:.3} {:.3} {:.3} {:.3} {:.3}",
                 i + 1,
                 step_potential,
                 kinetic_energy,
                 hamiltonian,
-                temperature
+                temperature,
+                pressure
             );
         }
     }

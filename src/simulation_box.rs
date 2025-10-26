@@ -61,4 +61,8 @@ impl SimulationBox {
         let h = Matrix3::from_columns(&[a, b, c]);
         Self::new(h, [true; 3])
     }
+
+    pub fn volume(&self) -> f64 {
+        self.h.determinant().abs()
+    }
 }
