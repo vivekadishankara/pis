@@ -37,12 +37,7 @@ impl Atoms {
     }
 
     pub fn kinetic_tensor(&self) -> Matrix3<f64> {
-        let mut kinetic_tensor: Matrix3<f64> = Matrix3::zeros();
-        for i in 0..self.n_atoms {
-            let mass = self.mass_i(i);
-            kinetic_tensor += mass * self.velocities.column(i) * self.velocities.column(i).transpose();
-        }
-        kinetic_tensor
+        &self.velocities * self.velocities.transpose()
     }
 
     pub fn virial_tensor(&self) -> Matrix3<f64> {
