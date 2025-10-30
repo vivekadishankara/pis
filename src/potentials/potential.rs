@@ -5,7 +5,6 @@ use std::collections::HashMap;
 use crate::atoms::new::Atoms;
 use crate::ensemble::npt::MTKBarostat;
 use crate::ensemble::nvt::NHThermostatChain;
-use crate::math::symmetrize;
 use crate::writers::dump_traj::DumpTraj;
 
 pub trait PotentialManager: Send + Sync {
@@ -56,49 +55,6 @@ pub trait PotentialManager: Send + Sync {
         potential_energy
     }
 
-    fn verlet_step_npt_mtk(
-        &self,
-        atoms: &mut Atoms,
-        dt: f64,
-        mtk_barostat: &mut MTKBarostat,
-        noose_hoover_chain: &mut NHThermostatChain,
-    ) -> f64 {
-        let mut instant_pressure = atoms.pressure_tensor();
-
-        let mut delta_momentum =
-            atoms.sim_box.volume() * (instant_pressure - mtk_barostat.target_pressure) * 0.5 * dt;
-        mtk_barostat.momentum += symmetrize(&delta_momentum);
-
-        let mut eta_dot = mtk_barostat.momentum / mtk_barostat.w;
-        eta_dot = symmetrize(&eta_dot);
-        // let scale = mat_exp_taylor(&(-eta_dot * 0.5 * dt));
-        let scale = (-eta_dot * 0.5 * dt).exp();
-
-        atoms.velocities = &scale * &atoms.velocities;
-
-        let s = &atoms.sim_box.h_inv * &atoms.positions;
-        // let scale_h = mat_exp_taylor(&(eta_dot * dt));
-        let scale_h = (eta_dot * dt).exp();
-        atoms.sim_box.h = scale_h * atoms.sim_box.h;
-        atoms.sim_box.h_inv = atoms
-            .sim_box
-            .h
-            .try_inverse()
-            .expect("Box matrix should be invertible");
-        atoms.positions = atoms.sim_box.h * s;
-
-        let potential_energy = self.verlet_step_nvt_nhc(atoms, dt, noose_hoover_chain);
-
-        atoms.velocities = &scale * &atoms.velocities;
-
-        instant_pressure = atoms.pressure_tensor();
-        delta_momentum =
-            (instant_pressure - mtk_barostat.target_pressure) * atoms.sim_box.volume() * 0.5 * dt;
-        mtk_barostat.momentum += symmetrize(&delta_momentum);
-
-        potential_energy
-    }
-
     #[allow(dead_code)]
     fn verlet_step_npt_mtk1(
         &self,
@@ -114,15 +70,9 @@ pub trait PotentialManager: Send + Sync {
         let scale_t = (-0.5 * dt * noose_hoover_chain.xi[0]).exp();
         atoms.velocities = &atoms.velocities * scale_t;
 
-        let mut instant_pressure = atoms.pressure_tensor();
-        let mut delta_momentum =
-            (instant_pressure - mtk_barostat.target_pressure) * atoms.sim_box.volume() * 0.5 * dt;
-        mtk_barostat.momentum += symmetrize(&delta_momentum);
+        mtk_barostat.momentum += mtk_barostat.delta_momentum(atoms, dt);
 
-        let mut eta_dot = mtk_barostat.momentum / mtk_barostat.w;
-        eta_dot = symmetrize(&eta_dot);
-        // let scale = mat_exp_taylor(&(-eta_dot * 0.5 * dt));
-        let scale = (-eta_dot * 0.5 * dt).exp();
+        let scale = mtk_barostat.scale(dt, true);
         atoms.velocities = &scale * &atoms.velocities;
 
         let a_t = atoms.current_acceleration();
@@ -135,17 +85,8 @@ pub trait PotentialManager: Send + Sync {
             atoms.sim_box.apply_boundary_conditions_pos(r_i);
         }
 
-        mtk_barostat.eta += eta_dot * dt;
-        let s = &atoms.sim_box.h_inv * &atoms.positions;
-        // let scale_h = mat_exp_taylor(&(eta_dot * dt));
-        let scale_h = (eta_dot * dt).exp();
-        atoms.sim_box.h = scale_h * atoms.sim_box.h;
-        atoms.sim_box.h_inv = atoms
-            .sim_box
-            .h
-            .try_inverse()
-            .expect("Box matrix should be invertible");
-        atoms.positions = atoms.sim_box.h * s;
+        let scale_h = mtk_barostat.scale(dt, false);
+        atoms.scale_box(&scale_h);
 
         atoms.forces = Matrix3xX::zeros(atoms.n_atoms);
 
@@ -156,15 +97,37 @@ pub trait PotentialManager: Send + Sync {
         atoms.velocities += a_tdt * 0.5 * dt;
 
         atoms.velocities = &scale * &atoms.velocities;
-        instant_pressure = atoms.pressure_tensor();
-        delta_momentum =
-            (instant_pressure - mtk_barostat.target_pressure) * atoms.sim_box.volume() * 0.5 * dt;
-        mtk_barostat.momentum += symmetrize(&delta_momentum);
+        mtk_barostat.momentum += mtk_barostat.delta_momentum(atoms, dt);
 
         atoms.velocities = &atoms.velocities * scale_t;
         kinetic_energy = atoms.kinetic_energy();
         noose_hoover_chain.compute_forces(kinetic_energy, atoms.n_atoms);
         noose_hoover_chain.propagate_half_step(dt);
+
+        potential_energy
+    }
+
+    fn verlet_step_npt_mtk(
+        &self,
+        atoms: &mut Atoms,
+        dt: f64,
+        mtk_barostat: &mut MTKBarostat,
+        noose_hoover_chain: &mut NHThermostatChain,
+    ) -> f64 {
+        mtk_barostat.momentum += mtk_barostat.delta_momentum(atoms, dt);
+
+        let scale = mtk_barostat.scale(dt, true);
+
+        atoms.velocities = &scale * &atoms.velocities;
+
+        let scale_h = mtk_barostat.scale(dt, false);
+        atoms.scale_box(&scale_h);
+
+        let potential_energy = self.verlet_step_nvt_nhc(atoms, dt, noose_hoover_chain);
+
+        atoms.velocities = &scale * &atoms.velocities;
+
+        mtk_barostat.momentum += mtk_barostat.delta_momentum(atoms, dt);
 
         potential_energy
     }
@@ -177,7 +140,7 @@ pub trait PotentialManager: Send + Sync {
 
         let ensemble = "npt";
 
-        let mut noose_hoover_chain = NHThermostatChain::new(5.0, 100.0, 3);
+        let mut noose_hoover_chain = NHThermostatChain::new(5.0, 50.0, 3);
 
         let target_pressure = 0.01 * Matrix3::identity();
         let mut mtk_barostat = MTKBarostat::new(target_pressure, 1000.0, atoms.n_atoms, 5.0);
@@ -204,7 +167,13 @@ pub trait PotentialManager: Send + Sync {
                         + noose_hoover_chain.kinetic_energy()
                         + noose_hoover_chain.potential_energy(atoms.n_atoms)
                 }
-                "npt" => 0.0,
+                "npt" => {
+                    basic_hamiltonian
+                        + noose_hoover_chain.kinetic_energy()
+                        + noose_hoover_chain.potential_energy(atoms.n_atoms)
+                        + mtk_barostat.kinetic_energy()
+                        + mtk_barostat.potential_energy(&atoms.sim_box.h)
+                },
                 _ => panic!("Ensemble unknown"),
             };
             let temperature = atoms.temerature(kinetic_energy);
