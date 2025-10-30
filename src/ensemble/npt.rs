@@ -1,4 +1,4 @@
-use na::{Matrix3};
+use na::Matrix3;
 
 use crate::{atoms::new::Atoms, constants::KB_KJPERMOLEKELVIN, math::symmetrize};
 
@@ -25,7 +25,8 @@ impl MTKBarostat {
 
     pub fn delta_momentum(&self, atoms: &Atoms, dt: f64) -> Matrix3<f64> {
         let instant_pressure = atoms.pressure_tensor();
-        let delta_momentum = (instant_pressure - self.target_pressure) * (atoms.sim_box.volume() * 0.5 * dt);
+        let delta_momentum =
+            (instant_pressure - self.target_pressure) * (atoms.sim_box.volume() * 0.5 * dt);
         symmetrize(&delta_momentum)
     }
 

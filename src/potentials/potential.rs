@@ -173,7 +173,7 @@ pub trait PotentialManager: Send + Sync {
                         + noose_hoover_chain.potential_energy(atoms.n_atoms)
                         + mtk_barostat.kinetic_energy()
                         + mtk_barostat.potential_energy(&atoms.sim_box.h)
-                },
+                }
                 _ => panic!("Ensemble unknown"),
             };
             let temperature = atoms.temerature(kinetic_energy);
