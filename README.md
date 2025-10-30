@@ -32,7 +32,7 @@ An output `dump.lammpstrj` is generated which can be viewed in the [OVITO](https
 ## How to run simulations
 In its current state, PIS takes in a text file written in the lammps data file format.
 ```
-cargo run --release --bin pis -- -i example/example.txt -T 5 --steps 100 --timestep 1
+cargo run --release --bin pis -- -i example/example.txt -T 5 --steps 100 --timestep 0.25
 ```
 The input parameters have the following meanings
 ```

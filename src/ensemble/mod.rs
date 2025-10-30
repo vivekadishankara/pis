@@ -1,1 +1,2 @@
-pub mod noose_hoover_chain;
+pub mod npt;
+pub mod nvt;

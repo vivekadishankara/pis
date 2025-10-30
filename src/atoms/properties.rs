@@ -1,4 +1,4 @@
-use na::Matrix3xX;
+use na::{Matrix3, Matrix3xX};
 
 use crate::atoms::new::Atoms;
 use crate::constants::KB_KJPERMOLEKELVIN;
@@ -19,8 +19,8 @@ impl Atoms {
         ek
     }
 
-    pub fn current_temerature(&self, kinetic_energy: f64) -> f64 {
-        (2.0 * kinetic_energy) / (3.0 * self.n_atoms as f64 * KB_KJPERMOLEKELVIN)
+    pub fn temerature(&self, kinetic_energy: f64) -> f64 {
+        (2.0 * kinetic_energy) / (self.degress_of_freedom() as f64 * KB_KJPERMOLEKELVIN)
     }
 
     pub fn current_acceleration(&self) -> Matrix3xX<f64> {
@@ -30,5 +30,31 @@ impl Atoms {
             a_i += self.forces.column(i) / self.mass_i(i);
         }
         acceleration
+    }
+
+    pub fn degress_of_freedom(&self) -> usize {
+        3 * self.n_atoms
+    }
+
+    pub fn kinetic_tensor(&self) -> Matrix3<f64> {
+        &self.velocities * self.velocities.transpose()
+    }
+
+    pub fn virial_tensor(&self) -> Matrix3<f64> {
+        &self.positions * self.forces.transpose()
+    }
+
+    pub fn pressure_tensor(&self) -> Matrix3<f64> {
+        let kinetic_tensor = self.kinetic_tensor();
+        let virial_tensor = self.virial_tensor();
+        let volume = self.sim_box.volume();
+
+        (kinetic_tensor + virial_tensor) / volume
+    }
+
+    pub fn pressure(&self, kinetic_energy: f64) -> f64 {
+        let virial = self.virial_tensor().trace();
+        let volume = self.sim_box.volume();
+        (2.0 * kinetic_energy + virial) / (3.0 * volume)
     }
 }

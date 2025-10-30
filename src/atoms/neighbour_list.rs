@@ -38,6 +38,9 @@ impl Atoms {
         for i in 0..3 {
             let len_i = self.sim_box.h.column(i).norm();
             ncell[i] = (len_i / rcut).floor() as usize;
+            if ncell[i] == 0 {
+                ncell[i] = 1;
+            }
         }
 
         (ncell[0], ncell[1], ncell[2])

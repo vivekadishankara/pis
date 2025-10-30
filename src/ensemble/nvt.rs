@@ -1,7 +1,7 @@
 use crate::constants::KB_KJPERMOLEKELVIN;
 
 // implementation according to https://www2.stat.duke.edu/~scs/Projects/REMD/NoseHooverChains1992.pdf
-pub struct NooseHooverChain {
+pub struct NHThermostatChain {
     pub chain_size: usize,
     pub target_temp: f64,
     pub xi: Vec<f64>,  // thermostat velocities
@@ -10,7 +10,7 @@ pub struct NooseHooverChain {
     pub q: Vec<f64>,   // thermostat masses
 }
 
-impl NooseHooverChain {
+impl NHThermostatChain {
     // tau is the reaxation time for the thermostat chain
     pub fn new(temperature: f64, tau: f64, chain_size: usize) -> Self {
         // initialise thermostat velocities, positions forces and masses to 0.0
