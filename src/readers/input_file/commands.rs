@@ -1,8 +1,19 @@
-use std::{fs::File, io::{BufRead, BufReader}};
+use std::{
+    fs::File,
+    io::{BufRead, BufReader},
+};
 
 use na::{DVector, Matrix3xX};
 
-use crate::{atoms::new::Atoms, potentials::{lennard_jones::{LJVOffsetManager, LennardJones}, potential::PairPotentialManager}, readers::simulation_context::{SimulationContext, StartVelocity, VelocityDistribution}, simulation_box::SimulationBox};
+use crate::{
+    atoms::new::Atoms,
+    potentials::{
+        lennard_jones::{LJVOffsetManager, LennardJones},
+        potential::PairPotentialManager,
+    },
+    readers::simulation_context::{SimulationContext, StartVelocity, VelocityDistribution},
+    simulation_box::SimulationBox,
+};
 
 pub trait Command {
     fn run(&self, args: &[&str], ctx: &mut SimulationContext) -> anyhow::Result<()>;
@@ -47,34 +58,32 @@ impl Command for Velocity {
                                 read_args += 1;
                                 read_seed
                             }
-                            Err(_) => { 0 }
+                            Err(_) => 0,
                         };
                         Some(entry_seed)
                     }
-                    None => {
-                        Some(0)
-                    }
+                    None => Some(0),
                 };
             }
-            _ => println!("velocity style unknown")
+            _ => println!("velocity style unknown"),
         }
         loop {
             let keyword = match args.get(read_args) {
                 Some(entry) => {
                     read_args += 1;
-                    *entry 
+                    *entry
                 }
-                None => { break; }
+                None => {
+                    break;
+                }
             };
 
             match keyword {
-                "dist" => {
-                    match args[read_args] {
-                        "uniform" => start_velocity.dist = Some(VelocityDistribution::Uniform),
-                        "gaussian" => start_velocity.dist = Some(VelocityDistribution::Gaussian),
-                        _ => println!("velocity distribution unknown")
-                    }
-                }
+                "dist" => match args[read_args] {
+                    "uniform" => start_velocity.dist = Some(VelocityDistribution::Uniform),
+                    "gaussian" => start_velocity.dist = Some(VelocityDistribution::Gaussian),
+                    _ => println!("velocity distribution unknown"),
+                },
                 _ => {
                     println!("velocity keyword unknown");
                     break;
@@ -235,7 +244,8 @@ impl Command for ReadData {
             ctx_atoms.masses = masses;
             ctx_atoms.positions = positions;
             ctx_atoms.velocities = velocities;
-            ctx_atoms.sim_box = SimulationBox::from_lammps_data(xlo, xhi, ylo, yhi, zlo, zhi, 0.0, 0.0, 0.0);
+            ctx_atoms.sim_box =
+                SimulationBox::from_lammps_data(xlo, xhi, ylo, yhi, zlo, zhi, 0.0, 0.0, 0.0);
         } else {
             ctx.atoms = Some(Atoms {
                 n_atoms,
@@ -244,7 +254,9 @@ impl Command for ReadData {
                 positions,
                 velocities,
                 forces: Matrix3xX::zeros(n_atoms),
-                sim_box: SimulationBox::from_lammps_data(xlo, xhi, ylo, yhi, zlo, zhi, 0.0, 0.0, 0.0),
+                sim_box: SimulationBox::from_lammps_data(
+                    xlo, xhi, ylo, yhi, zlo, zhi, 0.0, 0.0, 0.0,
+                ),
             });
         }
 
@@ -257,12 +269,13 @@ impl Command for ReadData {
         if let Some(velocity) = &mut ctx.starting_velocity {
             velocity.start_velocity = start_velocities;
         } else {
-            ctx.starting_velocity = Some(StartVelocity { 
-                group: String::from("all"), 
-                start_velocity: start_velocities, 
+            ctx.starting_velocity = Some(StartVelocity {
+                group: String::from("all"),
+                start_velocity: start_velocities,
                 start_temperature: None,
-                seed: None, 
-                dist: None })
+                seed: None,
+                dist: None,
+            })
         }
         Ok(())
     }

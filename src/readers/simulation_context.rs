@@ -10,12 +10,18 @@ pub struct StartVelocity {
     pub start_velocity: bool,
     pub start_temperature: Option<f64>,
     pub seed: Option<usize>,
-    pub dist: Option<VelocityDistribution>
+    pub dist: Option<VelocityDistribution>,
 }
 
 impl Default for StartVelocity {
     fn default() -> Self {
-        Self { group: String::from("all"), start_velocity: true, start_temperature: None, seed: None, dist: None }
+        Self {
+            group: String::from("all"),
+            start_velocity: true,
+            start_temperature: None,
+            seed: None,
+            dist: None,
+        }
     }
 }
 

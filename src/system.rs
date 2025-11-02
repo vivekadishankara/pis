@@ -1,6 +1,13 @@
-use std::{collections::HashMap, fs::File, io::{BufRead, BufReader}};
+use std::{
+    collections::HashMap,
+    fs::File,
+    io::{BufRead, BufReader},
+};
 
-use crate::readers::{input_file::commands::{Command, ReadData, RunSteps, TimeStep, Velocity}, simulation_context::SimulationContext};
+use crate::readers::{
+    input_file::commands::{Command, ReadData, RunSteps, TimeStep, Velocity},
+    simulation_context::SimulationContext,
+};
 
 pub struct System {
     infile: String,
@@ -12,14 +19,22 @@ impl System {
     pub fn new(infile: String) -> Self {
         let command_hash = HashMap::new();
         let ctx = SimulationContext::default();
-        Self { infile, command_hash, ctx }
+        Self {
+            infile,
+            command_hash,
+            ctx,
+        }
     }
 
     fn build_command_hash(&mut self) {
-        self.command_hash.insert(String::from("timestep"), Box::new(TimeStep));
-        self.command_hash.insert(String::from("run"), Box::new(RunSteps));
-        self.command_hash.insert(String::from("velocity"), Box::new(Velocity));
-        self.command_hash.insert(String::from("read_data"), Box::new(ReadData));
+        self.command_hash
+            .insert(String::from("timestep"), Box::new(TimeStep));
+        self.command_hash
+            .insert(String::from("run"), Box::new(RunSteps));
+        self.command_hash
+            .insert(String::from("velocity"), Box::new(Velocity));
+        self.command_hash
+            .insert(String::from("read_data"), Box::new(ReadData));
     }
 
     pub fn read(&mut self) -> &mut Self {
@@ -36,11 +51,7 @@ impl System {
                 continue;
             }
 
-            let uncommented = line
-                .splitn(2, '#')
-                .next()
-                .unwrap()
-                .trim();
+            let uncommented = line.splitn(2, '#').next().unwrap().trim();
 
             let line_split: Vec<&str> = uncommented.split_whitespace().collect();
 
@@ -65,11 +76,11 @@ impl System {
                 if starting_velocity.start_velocity {
                     let start_temperature = match starting_velocity.start_temperature {
                         Some(temperature) => temperature,
-                        None => 300.0
+                        None => 300.0,
                     };
                     let seed = match starting_velocity.seed {
                         Some(seed) => seed,
-                        None => 0
+                        None => 0,
                     };
                     atoms.start_velocities(start_temperature, seed);
                 }
