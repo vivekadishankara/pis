@@ -1,3 +1,4 @@
+#![allow(dead_code)]
 use std::{collections::HashSet, ops::AddAssign, sync::Arc};
 
 use na::{DVector, Matrix3xX, Vector3};

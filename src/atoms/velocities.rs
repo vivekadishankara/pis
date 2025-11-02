@@ -1,18 +1,19 @@
 use na::{DVector, Vector3};
+use rand::SeedableRng;
 use rand_distr::{Distribution, Normal};
 
 use crate::atoms::new::Atoms;
 use crate::constants::KB_KJPERMOLEKELVIN;
 
 impl Atoms {
-    pub fn start_velocities(&mut self, temperature: f64) {
-        self.initialise_velocities(temperature);
+    pub fn start_velocities(&mut self, temperature: f64, seed: usize) {
+        self.initialise_velocities(temperature, seed);
         self.remove_drift();
         self.rescale_to_temperature(temperature);
     }
 
-    fn initialise_velocities(&mut self, temperature: f64) {
-        let mut rng = rand::rng();
+    fn initialise_velocities(&mut self, temperature: f64, seed: usize) {
+        let mut rng = rand::rngs::SmallRng::seed_from_u64(seed as u64);
 
         let mut sigma: f64;
         let mut normal: Normal<f64>;

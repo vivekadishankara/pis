@@ -1,28 +1,106 @@
 use std::{
     fs::File,
     io::{BufRead, BufReader},
-    usize,
 };
 
 use na::{DVector, Matrix3xX};
 
 use crate::{
     atoms::new::Atoms,
-    potentials::{lennard_jones::LennardJones, potential::PairPotentialManager},
+    potentials::{
+        lennard_jones::{LJVOffsetManager, LennardJones},
+        potential::PairPotentialManager,
+    },
+    readers::simulation_context::{SimulationContext, StartVelocity, VelocityDistribution},
     simulation_box::SimulationBox,
 };
 
-pub struct DataReader {
-    infile: String,
+pub trait Command {
+    fn run(&self, args: &[&str], ctx: &mut SimulationContext) -> anyhow::Result<()>;
 }
 
-impl DataReader {
-    pub fn new(infile: String) -> Self {
-        Self { infile }
-    }
+pub struct TimeStep;
 
-    pub fn read<T: PairPotentialManager>(&self, temperature: f64) -> anyhow::Result<(Atoms, T)> {
-        let file = File::open(&self.infile)?;
+impl Command for TimeStep {
+    fn run(&self, args: &[&str], ctx: &mut SimulationContext) -> anyhow::Result<()> {
+        ctx.timestep = args[0].parse()?;
+        Ok(())
+    }
+}
+
+pub struct RunSteps;
+
+impl Command for RunSteps {
+    fn run(&self, args: &[&str], ctx: &mut SimulationContext) -> anyhow::Result<()> {
+        ctx.steps = args[0].parse()?;
+        Ok(())
+    }
+}
+
+pub struct Velocity;
+
+impl Command for Velocity {
+    fn run(&self, args: &[&str], ctx: &mut SimulationContext) -> anyhow::Result<()> {
+        let mut read_args = 0;
+        let mut start_velocity = StartVelocity::default();
+        start_velocity.group = String::from(args[read_args]);
+        read_args += 1;
+        let style = args[read_args];
+        read_args += 1;
+        match style {
+            "create" => {
+                start_velocity.start_temperature = Some(args[read_args].parse()?);
+                read_args += 1;
+                start_velocity.seed = match args.get(read_args) {
+                    Some(entry) => {
+                        let entry_seed = match entry.parse::<usize>() {
+                            Ok(read_seed) => {
+                                read_args += 1;
+                                read_seed
+                            }
+                            Err(_) => 0,
+                        };
+                        Some(entry_seed)
+                    }
+                    None => Some(0),
+                };
+            }
+            _ => println!("velocity style unknown"),
+        }
+        loop {
+            let keyword = match args.get(read_args) {
+                Some(entry) => {
+                    read_args += 1;
+                    *entry
+                }
+                None => {
+                    break;
+                }
+            };
+
+            match keyword {
+                "dist" => match args[read_args] {
+                    "uniform" => start_velocity.dist = Some(VelocityDistribution::Uniform),
+                    "gaussian" => start_velocity.dist = Some(VelocityDistribution::Gaussian),
+                    _ => println!("velocity distribution unknown"),
+                },
+                _ => {
+                    println!("velocity keyword unknown");
+                    break;
+                }
+            };
+        }
+        ctx.starting_velocity = Some(start_velocity);
+
+        Ok(())
+    }
+}
+
+pub struct ReadData;
+
+impl Command for ReadData {
+    fn run(&self, args: &[&str], ctx: &mut SimulationContext) -> anyhow::Result<()> {
+        let file = File::open(args[0])?;
         let reader = BufReader::new(file);
 
         let mut section = String::new();
@@ -40,7 +118,7 @@ impl DataReader {
 
         let mut start_velocities = true;
 
-        let mut mgr = T::new();
+        let mut mgr = LJVOffsetManager::new();
 
         for line in reader.lines() {
             let line = line?;
@@ -160,19 +238,45 @@ impl DataReader {
             }
         }
 
-        let mut atoms = Atoms {
-            n_atoms,
-            type_ids,
-            masses,
-            positions,
-            velocities,
-            forces: Matrix3xX::zeros(n_atoms),
-            sim_box: SimulationBox::from_lammps_data(xlo, xhi, ylo, yhi, zlo, zhi, 0.0, 0.0, 0.0),
-        };
-
-        if start_velocities {
-            atoms.start_velocities(temperature);
+        if let Some(ctx_atoms) = &mut ctx.atoms {
+            ctx_atoms.n_atoms = n_atoms;
+            ctx_atoms.type_ids = type_ids;
+            ctx_atoms.masses = masses;
+            ctx_atoms.positions = positions;
+            ctx_atoms.velocities = velocities;
+            ctx_atoms.sim_box =
+                SimulationBox::from_lammps_data(xlo, xhi, ylo, yhi, zlo, zhi, 0.0, 0.0, 0.0);
+        } else {
+            ctx.atoms = Some(Atoms {
+                n_atoms,
+                type_ids,
+                masses,
+                positions,
+                velocities,
+                forces: Matrix3xX::zeros(n_atoms),
+                sim_box: SimulationBox::from_lammps_data(
+                    xlo, xhi, ylo, yhi, zlo, zhi, 0.0, 0.0, 0.0,
+                ),
+            });
         }
-        Ok((atoms, mgr))
+
+        if let Some(ctx_mgr) = &mut ctx.mgr {
+            *ctx_mgr = Box::new(mgr);
+        } else {
+            ctx.mgr = Some(Box::new(mgr));
+        }
+
+        if let Some(velocity) = &mut ctx.starting_velocity {
+            velocity.start_velocity = start_velocities;
+        } else {
+            ctx.starting_velocity = Some(StartVelocity {
+                group: String::from("all"),
+                start_velocity: start_velocities,
+                start_temperature: None,
+                seed: None,
+                dist: None,
+            })
+        }
+        Ok(())
     }
 }
