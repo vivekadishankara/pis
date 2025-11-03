@@ -32,16 +32,12 @@ An output `dump.lammpstrj` is generated which can be viewed in the [OVITO](https
 ## How to run simulations
 In its current state, PIS takes in a text file written in the lammps data file format.
 ```
-cargo run --release --bin pis -- -i example/example.txt -T 5 --steps 100 --timestep 0.25
+cargo run --release --bin pis -- -i example/input.pis
 ```
 The input parameters have the following meanings
 ```
 Options:
-  -i, --infile <INFILE>            [default: data.txt]
-  -s, --steps <STEPS>              [default: 50]
-  -t, --timestep <TIMESTEP>        [default: 0.001]
-  -T, --temperature <TEMPERATURE>  [default: 300]
-  -d, --dump-path <DUMP_PATH>      [default: dump.lammpstrj]
+  -i, --infile <INFILE>            [default: input.pis]
   -h, --help                       Print help
   -V, --version                    Print version
 ```
