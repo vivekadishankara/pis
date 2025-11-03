@@ -3,7 +3,7 @@ use std::{
     io::{BufRead, BufReader},
 };
 
-use na::{DVector, Matrix3xX};
+use na::{DVector, Matrix3, Matrix3xX};
 
 use crate::{
     atoms::new::Atoms,
@@ -11,7 +11,10 @@ use crate::{
         lennard_jones::{LJVOffsetManager, LennardJones},
         potential::PairPotentialManager,
     },
-    readers::simulation_context::{SimulationContext, StartVelocity, VelocityDistribution},
+    readers::simulation_context::{
+        MTKBarostatArgs, NHThermostatChainArgs, SimulationContext, StartVelocity,
+        VelocityDistribution,
+    },
     simulation_box::SimulationBox,
 };
 
@@ -276,6 +279,78 @@ impl Command for ReadData {
                 seed: None,
                 dist: None,
             })
+        }
+        Ok(())
+    }
+}
+
+pub struct Fix;
+
+impl Command for Fix {
+    fn run(&self, args: &[&str], ctx: &mut SimulationContext) -> anyhow::Result<()> {
+        let mut read_args: usize = 0;
+
+        let name = String::from(args[read_args]);
+        read_args += 1;
+        let group = String::from(args[read_args]);
+        read_args += 1;
+        let style = args[read_args];
+        read_args += 1;
+
+        loop {
+            let keyword = match args.get(read_args) {
+                Some(entry) => {
+                    read_args += 1;
+                    *entry
+                }
+                None => {
+                    break;
+                }
+            };
+            match keyword {
+                "temp" => {
+                    let start_temperature: f64 = args[read_args].parse()?;
+                    read_args += 1;
+                    let end_temperature: f64 = args[read_args].parse()?;
+                    read_args += 1;
+                    let tau: f64 = args[read_args].parse()?;
+                    read_args += 1;
+                    let name = name.clone();
+                    let group = group.clone();
+                    if style == "npt" || style == "nvt" {
+                        let nh_chain_args = NHThermostatChainArgs {
+                            name,
+                            group,
+                            start_temperature,
+                            end_temperature,
+                            tau,
+                        };
+                        ctx.nh_chain_args = Some(nh_chain_args);
+                    }
+                }
+                "iso" => {
+                    let start_pressure: f64 = args[read_args].parse()?;
+                    read_args += 1;
+                    let _end_pressure: f64 = args[read_args].parse()?;
+                    read_args += 1;
+                    let tau: f64 = args[read_args].parse()?;
+                    read_args += 1;
+                    let name = name.clone();
+                    let group = group.clone();
+                    if style == "npt" {
+                        let target_pressure = Matrix3::identity() * start_pressure;
+                        let mtk_barostat_args = MTKBarostatArgs {
+                            name,
+                            group,
+                            start_pressure: target_pressure,
+                            end_pressure: target_pressure,
+                            tau,
+                        };
+                        ctx.mtk_barostat_args = Some(mtk_barostat_args);
+                    }
+                }
+                _ => println!("Unknow keyword for fix command {}", keyword),
+            }
         }
         Ok(())
     }

@@ -1,3 +1,5 @@
+use na::Matrix3;
+
 use crate::{atoms::new::Atoms, potentials::potential::PotentialManager};
 
 pub enum VelocityDistribution {
@@ -25,12 +27,32 @@ impl Default for StartVelocity {
     }
 }
 
+pub struct NHThermostatChainArgs {
+    pub name: String,
+    pub group: String,
+    pub start_temperature: f64,
+    #[allow(dead_code)]
+    pub end_temperature: f64,
+    pub tau: f64,
+}
+
+pub struct MTKBarostatArgs {
+    pub name: String,
+    pub group: String,
+    pub start_pressure: Matrix3<f64>,
+    #[allow(dead_code)]
+    pub end_pressure: Matrix3<f64>,
+    pub tau: f64,
+}
+
 pub struct SimulationContext {
     pub atoms: Option<Atoms>,
     pub timestep: f64,
     pub mgr: Option<Box<dyn PotentialManager>>,
     pub starting_velocity: Option<StartVelocity>,
     pub steps: usize,
+    pub nh_chain_args: Option<NHThermostatChainArgs>,
+    pub mtk_barostat_args: Option<MTKBarostatArgs>,
     // pub dump_style: DumpStyle,
 }
 
@@ -42,6 +64,16 @@ impl Default for SimulationContext {
             mgr: None,
             starting_velocity: None,
             steps: 100,
+            nh_chain_args: None,
+            mtk_barostat_args: None,
         }
+    }
+}
+
+impl SimulationContext {
+    pub fn run(&mut self) {
+        let mgr = self.mgr.take().expect("Potential Manager not initialized");
+        mgr.run(self);
+        self.mgr = Some(mgr);
     }
 }

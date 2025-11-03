@@ -1,7 +1,11 @@
-use crate::constants::KB_KJPERMOLEKELVIN;
+use crate::{constants::KB_KJPERMOLEKELVIN, readers::simulation_context::NHThermostatChainArgs};
 
 // implementation according to https://www2.stat.duke.edu/~scs/Projects/REMD/NoseHooverChains1992.pdf
 pub struct NHThermostatChain {
+    #[allow(dead_code)]
+    pub name: String,
+    #[allow(dead_code)]
+    pub group: String,
     pub chain_size: usize,
     pub target_temp: f64,
     pub xi: Vec<f64>,  // thermostat velocities
@@ -12,7 +16,7 @@ pub struct NHThermostatChain {
 
 impl NHThermostatChain {
     // tau is the reaxation time for the thermostat chain
-    pub fn new(temperature: f64, tau: f64, chain_size: usize) -> Self {
+    pub fn new(name: String, group: String, temperature: f64, tau: f64, chain_size: usize) -> Self {
         // initialise thermostat velocities, positions forces and masses to 0.0
         let xi = vec![0.0; chain_size];
         let eta = vec![0.0; chain_size];
@@ -28,6 +32,8 @@ impl NHThermostatChain {
         }
 
         Self {
+            name,
+            group,
             chain_size,
             target_temp: temperature,
             xi,
@@ -76,5 +82,18 @@ impl NHThermostatChain {
             thermostat_pe += KB_KJPERMOLEKELVIN * self.target_temp * self.eta[i];
         }
         thermostat_pe
+    }
+
+    pub fn new_from_args(nh_chain_args: &Option<NHThermostatChainArgs>) -> Option<Self> {
+        match nh_chain_args {
+            Some(args) => Some(Self::new(
+                args.name.to_string(),
+                args.group.to_string(),
+                args.start_temperature,
+                args.tau,
+                3,
+            )),
+            None => None,
+        }
     }
 }

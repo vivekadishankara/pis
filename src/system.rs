@@ -5,7 +5,7 @@ use std::{
 };
 
 use crate::readers::{
-    input_file::commands::{Command, ReadData, RunSteps, TimeStep, Velocity},
+    input_file::commands::{Command, Fix, ReadData, RunSteps, TimeStep, Velocity},
     simulation_context::SimulationContext,
 };
 
@@ -35,6 +35,7 @@ impl System {
             .insert(String::from("velocity"), Box::new(Velocity));
         self.command_hash
             .insert(String::from("read_data"), Box::new(ReadData));
+        self.command_hash.insert(String::from("fix"), Box::new(Fix));
     }
 
     pub fn read(&mut self) -> &mut Self {
@@ -91,11 +92,6 @@ impl System {
     }
 
     pub fn run(&mut self) {
-        let atoms = self.ctx.atoms.as_mut().unwrap();
-        if let Some(mgr) = &self.ctx.mgr {
-            mgr.run(atoms, self.ctx.timestep, self.ctx.steps, "dump.lammpstrj");
-        } else {
-            panic!("Potential Manager has not been filled input file");
-        }
+        self.ctx.run();
     }
 }

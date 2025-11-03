@@ -1,10 +1,11 @@
 use core::panic;
-use na::{Matrix3, Matrix3xX, Vector3};
+use na::{Matrix3xX, Vector3};
 use std::collections::HashMap;
 
 use crate::atoms::new::Atoms;
 use crate::ensemble::npt::MTKBarostat;
 use crate::ensemble::nvt::NHThermostatChain;
+use crate::readers::simulation_context::SimulationContext;
 use crate::writers::dump_traj::DumpTraj;
 
 pub trait PotentialManager: Send + Sync {
@@ -132,26 +133,44 @@ pub trait PotentialManager: Send + Sync {
         potential_energy
     }
 
-    fn run(&self, atoms: &mut Atoms, dt: f64, time_steps: usize, dump_path: &str) {
-        let mut dumper = DumpTraj::new(dump_path).expect("Failed to create dump file");
+    fn run(&self, ctx: &mut SimulationContext) {
+        let mut atoms = match &mut ctx.atoms {
+            Some(atoms) => atoms,
+            None => panic!("Simulation Context does not have the atoms"),
+        };
+        let dt = ctx.timestep;
+        let time_steps = ctx.steps;
+
+        let mut dumper = DumpTraj::new("dump.lammpstrj").expect("Failed to create dump file");
         dumper.write_step(&atoms, 0).expect("Failed to write step");
-        let first_potential = self.compute_potential(atoms);
+        let first_potential = self.compute_potential(&mut atoms);
         println!("{} {}", 0, first_potential);
 
-        let ensemble = "npt";
+        let ensemble: &str;
+        if ctx.nh_chain_args.is_some() && ctx.mtk_barostat_args.is_some() {
+            ensemble = "npt";
+        } else if ctx.nh_chain_args.is_some() {
+            ensemble = "nvt";
+        } else {
+            ensemble = "nve";
+        }
 
-        let mut noose_hoover_chain = NHThermostatChain::new(5.0, 50.0, 3);
-
-        let target_pressure = 0.01 * Matrix3::identity();
-        let mut mtk_barostat = MTKBarostat::new(target_pressure, 1000.0, atoms.n_atoms, 5.0);
+        let mut nose_hoover_chain = NHThermostatChain::new_from_args(&ctx.nh_chain_args);
+        let mut mtk_barostat =
+            MTKBarostat::new_from_args(&ctx.mtk_barostat_args, &ctx.nh_chain_args, atoms.n_atoms);
 
         for i in 0..time_steps {
             let step_potential = match ensemble {
-                "nve" => self.verlet_step_nve(atoms, dt),
-                "nvt" => self.verlet_step_nvt_nhc(atoms, dt, &mut noose_hoover_chain),
-                "npt" => {
-                    self.verlet_step_npt_mtk(atoms, dt, &mut mtk_barostat, &mut noose_hoover_chain)
+                "nve" => self.verlet_step_nve(&mut atoms, dt),
+                "nvt" => {
+                    self.verlet_step_nvt_nhc(&mut atoms, dt, nose_hoover_chain.as_mut().unwrap())
                 }
+                "npt" => self.verlet_step_npt_mtk(
+                    &mut atoms,
+                    dt,
+                    &mut mtk_barostat.as_mut().unwrap(),
+                    nose_hoover_chain.as_mut().unwrap(),
+                ),
                 _ => panic!("Ensemble unknown"),
             };
             dumper
@@ -164,15 +183,24 @@ pub trait PotentialManager: Send + Sync {
                 "nve" => basic_hamiltonian,
                 "nvt" => {
                     basic_hamiltonian
-                        + noose_hoover_chain.kinetic_energy()
-                        + noose_hoover_chain.potential_energy(atoms.n_atoms)
+                        + nose_hoover_chain.as_ref().unwrap().kinetic_energy()
+                        + nose_hoover_chain
+                            .as_ref()
+                            .unwrap()
+                            .potential_energy(atoms.n_atoms)
                 }
                 "npt" => {
                     basic_hamiltonian
-                        + noose_hoover_chain.kinetic_energy()
-                        + noose_hoover_chain.potential_energy(atoms.n_atoms)
-                        + mtk_barostat.kinetic_energy()
-                        + mtk_barostat.potential_energy(&atoms.sim_box.h)
+                        + nose_hoover_chain.as_ref().unwrap().kinetic_energy()
+                        + nose_hoover_chain
+                            .as_ref()
+                            .unwrap()
+                            .potential_energy(atoms.n_atoms)
+                        + mtk_barostat.as_ref().unwrap().kinetic_energy()
+                        + mtk_barostat
+                            .as_ref()
+                            .unwrap()
+                            .potential_energy(&atoms.sim_box.h)
                 }
                 _ => panic!("Ensemble unknown"),
             };
