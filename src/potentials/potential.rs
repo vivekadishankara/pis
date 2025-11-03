@@ -136,7 +136,7 @@ pub trait PotentialManager: Send + Sync {
     fn run(&self, ctx: &mut SimulationContext) {
         let mut atoms = match &mut ctx.atoms {
             Some(atoms) => atoms,
-            None => panic!("Simulation Context does not have the atoms")
+            None => panic!("Simulation Context does not have the atoms"),
         };
         let dt = ctx.timestep;
         let time_steps = ctx.steps;
@@ -156,15 +156,21 @@ pub trait PotentialManager: Send + Sync {
         }
 
         let mut nose_hoover_chain = NHThermostatChain::new_from_args(&ctx.nh_chain_args);
-        let mut mtk_barostat = MTKBarostat::new_from_args(&ctx.mtk_barostat_args, &ctx.nh_chain_args, atoms.n_atoms);
+        let mut mtk_barostat =
+            MTKBarostat::new_from_args(&ctx.mtk_barostat_args, &ctx.nh_chain_args, atoms.n_atoms);
 
         for i in 0..time_steps {
             let step_potential = match ensemble {
                 "nve" => self.verlet_step_nve(&mut atoms, dt),
-                "nvt" => self.verlet_step_nvt_nhc(&mut atoms, dt, nose_hoover_chain.as_mut().unwrap()),
-                "npt" => {
-                    self.verlet_step_npt_mtk(&mut atoms, dt, &mut mtk_barostat.as_mut().unwrap(), nose_hoover_chain.as_mut().unwrap())
+                "nvt" => {
+                    self.verlet_step_nvt_nhc(&mut atoms, dt, nose_hoover_chain.as_mut().unwrap())
                 }
+                "npt" => self.verlet_step_npt_mtk(
+                    &mut atoms,
+                    dt,
+                    &mut mtk_barostat.as_mut().unwrap(),
+                    nose_hoover_chain.as_mut().unwrap(),
+                ),
                 _ => panic!("Ensemble unknown"),
             };
             dumper
@@ -178,14 +184,23 @@ pub trait PotentialManager: Send + Sync {
                 "nvt" => {
                     basic_hamiltonian
                         + nose_hoover_chain.as_ref().unwrap().kinetic_energy()
-                        + nose_hoover_chain.as_ref().unwrap().potential_energy(atoms.n_atoms)
+                        + nose_hoover_chain
+                            .as_ref()
+                            .unwrap()
+                            .potential_energy(atoms.n_atoms)
                 }
                 "npt" => {
                     basic_hamiltonian
                         + nose_hoover_chain.as_ref().unwrap().kinetic_energy()
-                        + nose_hoover_chain.as_ref().unwrap().potential_energy(atoms.n_atoms)
+                        + nose_hoover_chain
+                            .as_ref()
+                            .unwrap()
+                            .potential_energy(atoms.n_atoms)
                         + mtk_barostat.as_ref().unwrap().kinetic_energy()
-                        + mtk_barostat.as_ref().unwrap().potential_energy(&atoms.sim_box.h)
+                        + mtk_barostat
+                            .as_ref()
+                            .unwrap()
+                            .potential_energy(&atoms.sim_box.h)
                 }
                 _ => panic!("Ensemble unknown"),
             };

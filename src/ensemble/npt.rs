@@ -1,6 +1,11 @@
 use na::Matrix3;
 
-use crate::{atoms::new::Atoms, constants::KB_KJPERMOLEKELVIN, math::symmetrize, readers::simulation_context::{MTKBarostatArgs, NHThermostatChainArgs}};
+use crate::{
+    atoms::new::Atoms,
+    constants::KB_KJPERMOLEKELVIN,
+    math::symmetrize,
+    readers::simulation_context::{MTKBarostatArgs, NHThermostatChainArgs},
+};
 
 // Martyna, Tobias, Klein (1994) "Constant pressure molecular dynamics algorithms". J. Chem. Phys..
 pub struct MTKBarostat {
@@ -16,7 +21,14 @@ pub struct MTKBarostat {
 }
 
 impl MTKBarostat {
-    pub fn new(name: String, group: String, target_pressure: Matrix3<f64>, tau: f64, n_atoms: usize, target_temp: f64) -> Self {
+    pub fn new(
+        name: String,
+        group: String,
+        target_pressure: Matrix3<f64>,
+        tau: f64,
+        n_atoms: usize,
+        target_temp: f64,
+    ) -> Self {
         let momentum = Matrix3::zeros();
         let w = ((3 * n_atoms) as f64) * KB_KJPERMOLEKELVIN * target_temp * tau.powi(2);
 
@@ -52,13 +64,24 @@ impl MTKBarostat {
         (self.target_pressure.transpose() * h).trace()
     }
 
-    pub fn new_from_args(mtk_barostat_args: &Option<MTKBarostatArgs>, nh_chain_args: &Option<NHThermostatChainArgs>, n_atoms: usize) -> Option<Self> {
+    pub fn new_from_args(
+        mtk_barostat_args: &Option<MTKBarostatArgs>,
+        nh_chain_args: &Option<NHThermostatChainArgs>,
+        n_atoms: usize,
+    ) -> Option<Self> {
         let target_temperature = match nh_chain_args {
             Some(args) => args.start_temperature,
-            None => 300.0
+            None => 300.0,
         };
         match mtk_barostat_args {
-            Some(args) => { Some(Self::new(args.name.clone(), args.group.clone(),args.start_pressure.clone(), args.tau, n_atoms, target_temperature)) },
+            Some(args) => Some(Self::new(
+                args.name.clone(),
+                args.group.clone(),
+                args.start_pressure.clone(),
+                args.tau,
+                n_atoms,
+                target_temperature,
+            )),
             None => None,
         }
     }

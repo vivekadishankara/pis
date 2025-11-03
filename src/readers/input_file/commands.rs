@@ -1,15 +1,21 @@
 use std::{
-    fs::{File},
+    fs::File,
     io::{BufRead, BufReader},
 };
 
 use na::{DVector, Matrix3, Matrix3xX};
 
 use crate::{
-    atoms::new::Atoms, potentials::{
+    atoms::new::Atoms,
+    potentials::{
         lennard_jones::{LJVOffsetManager, LennardJones},
         potential::PairPotentialManager,
-    }, readers::simulation_context::{MTKBarostatArgs, NHThermostatChainArgs, SimulationContext, StartVelocity, VelocityDistribution}, simulation_box::SimulationBox
+    },
+    readers::simulation_context::{
+        MTKBarostatArgs, NHThermostatChainArgs, SimulationContext, StartVelocity,
+        VelocityDistribution,
+    },
+    simulation_box::SimulationBox,
 };
 
 pub trait Command {
@@ -312,7 +318,13 @@ impl Command for Fix {
                     let name = name.clone();
                     let group = group.clone();
                     if style == "npt" || style == "nvt" {
-                        let nh_chain_args = NHThermostatChainArgs{ name, group, start_temperature, end_temperature, tau };
+                        let nh_chain_args = NHThermostatChainArgs {
+                            name,
+                            group,
+                            start_temperature,
+                            end_temperature,
+                            tau,
+                        };
                         ctx.nh_chain_args = Some(nh_chain_args);
                     }
                 }
@@ -327,11 +339,17 @@ impl Command for Fix {
                     let group = group.clone();
                     if style == "npt" {
                         let target_pressure = Matrix3::identity() * start_pressure;
-                        let mtk_barostat_args = MTKBarostatArgs{ name, group, start_pressure: target_pressure, end_pressure: target_pressure, tau};
+                        let mtk_barostat_args = MTKBarostatArgs {
+                            name,
+                            group,
+                            start_pressure: target_pressure,
+                            end_pressure: target_pressure,
+                            tau,
+                        };
                         ctx.mtk_barostat_args = Some(mtk_barostat_args);
                     }
                 }
-                _ => println!("Unknow keyword for fix command {}", keyword)
+                _ => println!("Unknow keyword for fix command {}", keyword),
             }
         }
         Ok(())

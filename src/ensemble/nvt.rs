@@ -86,7 +86,13 @@ impl NHThermostatChain {
 
     pub fn new_from_args(nh_chain_args: &Option<NHThermostatChainArgs>) -> Option<Self> {
         match nh_chain_args {
-            Some(args) => Some(Self::new(args.name.to_string(), args.group.to_string(), args.start_temperature, args.tau, 3)),
+            Some(args) => Some(Self::new(
+                args.name.to_string(),
+                args.group.to_string(),
+                args.start_temperature,
+                args.tau,
+                3,
+            )),
             None => None,
         }
     }
