@@ -11,7 +11,7 @@ use crate::{
     },
     readers::{
         input_file::commands::{
-            Command, Dump, Fix, PairCoeff, PairStyle, ReadData, RunSteps, TimeStep, Velocity
+            Command, Dump, Fix, PairCoeff, PairStyle, ReadData, RunSteps, TimeStep, Velocity,
         },
         simulation_context::SimulationContext,
     },
@@ -48,7 +48,8 @@ impl System {
         self.command_hash
             .insert(String::from("pair_coeff"), Box::new(PairCoeff));
         self.command_hash.insert(String::from("fix"), Box::new(Fix));
-        self.command_hash.insert(String::from("dump"), Box::new(Dump));
+        self.command_hash
+            .insert(String::from("dump"), Box::new(Dump));
     }
 
     pub fn read(&mut self) -> &mut Self {

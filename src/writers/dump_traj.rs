@@ -3,7 +3,9 @@ use std::{
     io::{BufWriter, Result, Write},
 };
 
-use crate::{atoms::new::Atoms, readers::simulation_context::DumpArgs, simulation_box::SimulationBox};
+use crate::{
+    atoms::new::Atoms, readers::simulation_context::DumpArgs, simulation_box::SimulationBox,
+};
 
 pub struct DumpTraj {
     out: BufWriter<File>,

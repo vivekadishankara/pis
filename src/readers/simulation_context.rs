@@ -83,7 +83,7 @@ impl Default for DumpArgs {
             group,
             style,
             dump_step,
-            file_name
+            file_name,
         }
     }
 }

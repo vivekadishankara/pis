@@ -175,8 +175,8 @@ pub trait PotentialManager: Send + Sync {
             };
             if ((i + 1) % ctx.dump_args.dump_step) == 0 {
                 dumper
-                .write_step(&atoms, i + 1)
-                .expect("Failed to write step");
+                    .write_step(&atoms, i + 1)
+                    .expect("Failed to write step");
             }
 
             let kinetic_energy = atoms.kinetic_energy();
