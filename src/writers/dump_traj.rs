@@ -3,15 +3,15 @@ use std::{
     io::{BufWriter, Result, Write},
 };
 
-use crate::{atoms::new::Atoms, simulation_box::SimulationBox};
+use crate::{atoms::new::Atoms, readers::simulation_context::DumpArgs, simulation_box::SimulationBox};
 
 pub struct DumpTraj {
     out: BufWriter<File>,
 }
 
 impl DumpTraj {
-    pub fn new(path: &str) -> Result<Self> {
-        let file = File::create(path)?;
+    pub fn new(dump_args: &DumpArgs) -> Result<Self> {
+        let file = File::create(dump_args.file_name.as_str())?;
         Ok(DumpTraj {
             out: BufWriter::new(file),
         })

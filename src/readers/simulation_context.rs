@@ -62,6 +62,32 @@ impl Default for PotentialArgs {
     }
 }
 
+pub struct DumpArgs {
+    pub name: String,
+    pub group: String,
+    pub style: String,
+    pub dump_step: usize,
+    pub file_name: String,
+}
+
+impl Default for DumpArgs {
+    fn default() -> Self {
+        let name = String::from("default_dump");
+        let group = String::from("all");
+        let style = String::from("atoms");
+        let dump_step = 1;
+        let file_name = String::from("dump.lammpstrj");
+
+        Self {
+            name,
+            group,
+            style,
+            dump_step,
+            file_name
+        }
+    }
+}
+
 pub struct SimulationContext {
     pub atoms: Option<Atoms>,
     pub timestep: f64,
@@ -71,7 +97,7 @@ pub struct SimulationContext {
     pub potential_args: Option<PotentialArgs>,
     pub nh_chain_args: Option<NHThermostatChainArgs>,
     pub mtk_barostat_args: Option<MTKBarostatArgs>,
-    // pub dump_style: DumpStyle,
+    pub dump_args: DumpArgs,
 }
 
 impl Default for SimulationContext {
@@ -85,6 +111,7 @@ impl Default for SimulationContext {
             potential_args: None,
             nh_chain_args: None,
             mtk_barostat_args: None,
+            dump_args: DumpArgs::default(),
         }
     }
 }
