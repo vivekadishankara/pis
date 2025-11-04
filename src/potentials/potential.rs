@@ -141,7 +141,7 @@ pub trait PotentialManager: Send + Sync {
         let dt = ctx.timestep;
         let time_steps = ctx.steps;
 
-        let mut dumper = DumpTraj::new("dump.lammpstrj").expect("Failed to create dump file");
+        let mut dumper = DumpTraj::new(&ctx.dump_args).expect("Failed to create dump file");
         dumper.write_step(&atoms, 0).expect("Failed to write step");
         let first_potential = self.compute_potential(&mut atoms);
         println!("{} {}", 0, first_potential);
@@ -173,9 +173,11 @@ pub trait PotentialManager: Send + Sync {
                 ),
                 _ => panic!("Ensemble unknown"),
             };
-            dumper
-                .write_step(&atoms, i + 1)
-                .expect("Failed to write step");
+            if ((i + 1) % ctx.dump_args.dump_step) == 0 {
+                dumper
+                    .write_step(&atoms, i + 1)
+                    .expect("Failed to write step");
+            }
 
             let kinetic_energy = atoms.kinetic_energy();
             let basic_hamiltonian = step_potential + kinetic_energy;

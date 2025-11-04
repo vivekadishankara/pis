@@ -377,3 +377,21 @@ impl Command for PairCoeff {
         Ok(())
     }
 }
+
+pub struct Dump;
+
+impl Command for Dump {
+    fn run(&self, args: &[&str], ctx: &mut SimulationContext) -> anyhow::Result<()> {
+        let mut read_args = 0;
+        ctx.dump_args.name = args[read_args].to_string();
+        read_args += 1;
+        ctx.dump_args.group = args[read_args].to_string();
+        read_args += 1;
+        ctx.dump_args.style = args[read_args].to_string();
+        read_args += 1;
+        ctx.dump_args.dump_step = args[read_args].parse()?;
+        read_args += 1;
+        ctx.dump_args.file_name = args[read_args].to_string();
+        Ok(())
+    }
+}

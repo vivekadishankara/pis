@@ -25,6 +25,6 @@ fix mynvt all nvt temp 5.0 5.0 50
 fix mynpt all npt temp 5.0 5.0 100 iso 0.01 0.01 1000
 
 ## right now all and atom are mandatory
-##dump dp1 all atom 1 dump.lammpstrj
+dump dp1 all atom 10 dump.lammpstrj # ✅
 
-run 10  # ✅
+run 100  # ✅
