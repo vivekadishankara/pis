@@ -12,7 +12,8 @@ use crate::{
         potential::PairPotentialManager,
     },
     readers::simulation_context::{
-        MTKBarostatArgs, NHThermostatChainArgs, PotentialArgs, SimulationContext, StartVelocity, VelocityDistribution
+        MTKBarostatArgs, NHThermostatChainArgs, PotentialArgs, SimulationContext, StartVelocity,
+        VelocityDistribution,
     },
     simulation_box::SimulationBox,
 };

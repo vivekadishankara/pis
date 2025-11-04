@@ -4,10 +4,18 @@ use std::{
     io::{BufRead, BufReader},
 };
 
-use crate::{potentials::{lennard_jones::{LJVOffsetManager, LennardJones}, potential::PairPotentialManager}, readers::{
-    input_file::commands::{Command, Fix, PairCoeff, PairStyle, ReadData, RunSteps, TimeStep, Velocity},
-    simulation_context::SimulationContext,
-}};
+use crate::{
+    potentials::{
+        lennard_jones::{LJVOffsetManager, LennardJones},
+        potential::PairPotentialManager,
+    },
+    readers::{
+        input_file::commands::{
+            Command, Fix, PairCoeff, PairStyle, ReadData, RunSteps, TimeStep, Velocity,
+        },
+        simulation_context::SimulationContext,
+    },
+};
 
 pub struct System {
     infile: String,
@@ -35,8 +43,10 @@ impl System {
             .insert(String::from("velocity"), Box::new(Velocity));
         self.command_hash
             .insert(String::from("read_data"), Box::new(ReadData));
-        self.command_hash.insert(String::from("pair_style"), Box::new(PairStyle));
-        self.command_hash.insert(String::from("pair_coeff"), Box::new(PairCoeff));
+        self.command_hash
+            .insert(String::from("pair_style"), Box::new(PairStyle));
+        self.command_hash
+            .insert(String::from("pair_coeff"), Box::new(PairCoeff));
         self.command_hash.insert(String::from("fix"), Box::new(Fix));
     }
 
@@ -96,7 +106,9 @@ impl System {
             read_args_style += 1;
             match style.as_str() {
                 "lj/cut" => {
-                    let global_cutoff: f64 = potential_args.pair_style_args[read_args_style].parse().unwrap();
+                    let global_cutoff: f64 = potential_args.pair_style_args[read_args_style]
+                        .parse()
+                        .unwrap();
                     let mut mgr = LJVOffsetManager::new();
 
                     for pair_coeff in &potential_args.pair_coeff_args {
@@ -115,7 +127,7 @@ impl System {
                         };
                         println!("{}, {}, {}", epsilon, sigma, local_rcut);
                         let lj_ij = LennardJones::new(epsilon, sigma, local_rcut, true);
-                        mgr.insert((i,j), lj_ij);
+                        mgr.insert((i, j), lj_ij);
                     }
                     self.ctx.mgr = Some(Box::new(mgr));
                 }

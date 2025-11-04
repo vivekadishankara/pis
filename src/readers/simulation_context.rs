@@ -55,7 +55,10 @@ impl Default for PotentialArgs {
         let pair_style_args = Vec::new();
         let pair_coeff_args = Vec::new();
 
-        Self { pair_style_args, pair_coeff_args }
+        Self {
+            pair_style_args,
+            pair_coeff_args,
+        }
     }
 }
 
