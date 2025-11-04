@@ -4,10 +4,10 @@ use std::{
     io::{BufRead, BufReader},
 };
 
-use crate::readers::{
-    input_file::commands::{Command, Fix, ReadData, RunSteps, TimeStep, Velocity},
+use crate::{potentials::{lennard_jones::{LJVOffsetManager, LennardJones}, potential::PairPotentialManager}, readers::{
+    input_file::commands::{Command, Fix, PairCoeff, PairStyle, ReadData, RunSteps, TimeStep, Velocity},
     simulation_context::SimulationContext,
-};
+}};
 
 pub struct System {
     infile: String,
@@ -35,6 +35,8 @@ impl System {
             .insert(String::from("velocity"), Box::new(Velocity));
         self.command_hash
             .insert(String::from("read_data"), Box::new(ReadData));
+        self.command_hash.insert(String::from("pair_style"), Box::new(PairStyle));
+        self.command_hash.insert(String::from("pair_coeff"), Box::new(PairCoeff));
         self.command_hash.insert(String::from("fix"), Box::new(Fix));
     }
 
@@ -85,6 +87,39 @@ impl System {
                     };
                     atoms.start_velocities(start_temperature, seed);
                 }
+            }
+        }
+
+        if let Some(potential_args) = &self.ctx.potential_args {
+            let mut read_args_style = 0;
+            let style = &potential_args.pair_style_args[read_args_style];
+            read_args_style += 1;
+            match style.as_str() {
+                "lj/cut" => {
+                    let global_cutoff: f64 = potential_args.pair_style_args[read_args_style].parse().unwrap();
+                    let mut mgr = LJVOffsetManager::new();
+
+                    for pair_coeff in &potential_args.pair_coeff_args {
+                        let mut read_args_coeff = 0;
+                        let i: usize = pair_coeff[read_args_coeff].parse().unwrap();
+                        read_args_coeff += 1;
+                        let j: usize = pair_coeff[read_args_coeff].parse().unwrap();
+                        read_args_coeff += 1;
+                        let epsilon: f64 = pair_coeff[read_args_coeff].parse().unwrap();
+                        read_args_coeff += 1;
+                        let sigma: f64 = pair_coeff[read_args_coeff].parse().unwrap();
+                        read_args_coeff += 1;
+                        let local_rcut: f64 = match pair_coeff.get(read_args_coeff) {
+                            Some(rcut) => rcut.parse().unwrap(),
+                            None => global_cutoff,
+                        };
+                        println!("{}, {}, {}", epsilon, sigma, local_rcut);
+                        let lj_ij = LennardJones::new(epsilon, sigma, local_rcut, true);
+                        mgr.insert((i,j), lj_ij);
+                    }
+                    self.ctx.mgr = Some(Box::new(mgr));
+                }
+                _ => print!("Pair Style Unknown"),
             }
         }
 
