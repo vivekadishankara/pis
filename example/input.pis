@@ -7,7 +7,10 @@
 ##boundary p p p
 timestep 0.25 # ✅
 
-read_data example/example.txt # ✅
+read_data example/example2.txt # ✅
+
+pair_style lj/cut 8.5 # ✅
+pair_coeff 1 1 0.238 3.405 8.5 # ✅
 
 # System Definition
 ##lattice fcc 3.615
@@ -24,4 +27,4 @@ fix mynpt all npt temp 5.0 5.0 100 iso 0.01 0.01 1000
 ## right now all and atom are mandatory
 ##dump dp1 all atom 1 dump.lammpstrj
 
-run 100  # ✅
+run 10  # ✅

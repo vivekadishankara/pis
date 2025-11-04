@@ -12,7 +12,7 @@ use crate::{
         potential::PairPotentialManager,
     },
     readers::simulation_context::{
-        MTKBarostatArgs, NHThermostatChainArgs, SimulationContext, StartVelocity,
+        MTKBarostatArgs, NHThermostatChainArgs, PotentialArgs, SimulationContext, StartVelocity,
         VelocityDistribution,
     },
     simulation_box::SimulationBox,
@@ -263,9 +263,7 @@ impl Command for ReadData {
             });
         }
 
-        if let Some(ctx_mgr) = &mut ctx.mgr {
-            *ctx_mgr = Box::new(mgr);
-        } else {
+        if !mgr.is_empty() {
             ctx.mgr = Some(Box::new(mgr));
         }
 
@@ -351,6 +349,30 @@ impl Command for Fix {
                 }
                 _ => println!("Unknow keyword for fix command {}", keyword),
             }
+        }
+        Ok(())
+    }
+}
+
+pub struct PairStyle;
+
+impl Command for PairStyle {
+    fn run(&self, args: &[&str], ctx: &mut SimulationContext) -> anyhow::Result<()> {
+        let args: Vec<String> = args.iter().map(|entry| entry.to_string()).collect();
+        let mut potential_args = PotentialArgs::default();
+        potential_args.pair_style_args = args;
+        ctx.potential_args = Some(potential_args);
+        Ok(())
+    }
+}
+
+pub struct PairCoeff;
+
+impl Command for PairCoeff {
+    fn run(&self, args: &[&str], ctx: &mut SimulationContext) -> anyhow::Result<()> {
+        let args: Vec<String> = args.iter().map(|entry| entry.to_string()).collect();
+        if let Some(potential_args) = &mut ctx.potential_args {
+            potential_args.pair_coeff_args.push(args);
         }
         Ok(())
     }

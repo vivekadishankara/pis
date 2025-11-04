@@ -237,6 +237,10 @@ pub trait PairPotentialManager: Sized {
         Self::with_table(Table::new())
     }
 
+    fn is_empty(&self) -> bool {
+        self.table().is_empty()
+    }
+
     fn insert<P>(&mut self, key: AtomPair, potential: P)
     where
         P: PairPotential + 'static,
