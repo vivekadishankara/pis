@@ -18,7 +18,15 @@ pub struct NHThermostatChain {
 
 impl NHThermostatChain {
     // tau is the reaxation time for the thermostat chain
-    pub fn new(name: String, group: String, start_temperature: f64, end_temperature: f64, target_temperature: f64, tau: f64, chain_size: usize) -> Self {
+    pub fn new(
+        name: String,
+        group: String,
+        start_temperature: f64,
+        end_temperature: f64,
+        target_temperature: f64,
+        tau: f64,
+        chain_size: usize,
+    ) -> Self {
         // initialise thermostat velocities, positions forces and masses to 0.0
         let xi = vec![0.0; chain_size];
         let eta = vec![0.0; chain_size];
@@ -50,13 +58,13 @@ impl NHThermostatChain {
     // Compute generalized thermostat forces
     pub fn compute_forces(&mut self, kinetic_energy: f64, n_atoms: usize) {
         // G1​= 2K − Ndof ​kB ​T
-        self.g[0] =
-            2.0 * kinetic_energy - ((n_atoms * 3) as f64) * KB_KJPERMOLEKELVIN * self.target_temperature;
+        self.g[0] = 2.0 * kinetic_energy
+            - ((n_atoms * 3) as f64) * KB_KJPERMOLEKELVIN * self.target_temperature;
 
         for j in 1..self.chain_size {
             // Gj ​= Q(j−1) ​ξ(j−1)^2​ − kB​ T for j≥2
-            self.g[j] =
-                self.q[j - 1] * self.xi[j - 1].powi(2) - KB_KJPERMOLEKELVIN * self.target_temperature;
+            self.g[j] = self.q[j - 1] * self.xi[j - 1].powi(2)
+                - KB_KJPERMOLEKELVIN * self.target_temperature;
         }
     }
 
@@ -103,8 +111,14 @@ impl NHThermostatChain {
         }
     }
 
-    pub fn calculate_target_temperature(&mut self, current_timestep: usize, total_timesteps: usize) {
+    pub fn calculate_target_temperature(
+        &mut self,
+        current_timestep: usize,
+        total_timesteps: usize,
+    ) {
         // T_target = T_start + ((T_end - T_start) / total_timesteps) * current_timestep
-        self.target_temperature = self.start_temperature + ((self.end_temperature - self.start_temperature) / (total_timesteps) as f64) * current_timestep as f64;
+        self.target_temperature = self.start_temperature
+            + ((self.end_temperature - self.start_temperature) / (total_timesteps) as f64)
+                * current_timestep as f64;
     }
 }
