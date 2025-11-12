@@ -7,24 +7,24 @@
 ##boundary p p p
 timestep 0.25 # ✅
 
-read_data example/example2.txt # ✅
+read_data example/argon4000.txt # ✅
 
-pair_style lj/cut 8.5 # ✅
-pair_coeff 1 1 0.238 3.405 8.5 # ✅
+##pair_style lj/cut 8.5 # ✅
+##air_coeff 1 1 0.238 3.405 8.5 # ✅
 
 # System Definition
 ##lattice fcc 3.615
 ## region can only be block for now
-##region box block 0 10 0 10 0 10
-##create_box 1 box
+##region box1 block 0 10 0 10 0 10
+##create_box 1 box1
 ##create_atoms 1 box
 
 velocity all create 5.0 12345 # ✅
 
-fix mynvt all nvt temp 5.0 5.0 50
-fix mynpt all npt temp 5.0 5.0 100 iso 0.01 0.01 1000
+##fix mynvt all nvt temp 5.0 5.0 50 # ✅
+fix mynpt all npt temp 5.0 50.0 100 iso 0.01 0.01 1000 # ✅
 
 ## right now all and atom are mandatory
 dump dp1 all atom 10 dump.lammpstrj # ✅
 
-run 100  # ✅
+run 3000  # ✅

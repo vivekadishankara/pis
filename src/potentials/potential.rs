@@ -1,4 +1,4 @@
-use core::panic;
+use core::{panic};
 use na::{Matrix3xX, Vector3};
 use std::collections::HashMap;
 
@@ -163,14 +163,20 @@ pub trait PotentialManager: Send + Sync {
             let step_potential = match ensemble {
                 "nve" => self.verlet_step_nve(&mut atoms, dt),
                 "nvt" => {
-                    self.verlet_step_nvt_nhc(&mut atoms, dt, nose_hoover_chain.as_mut().unwrap())
+                    let potential = self.verlet_step_nvt_nhc(&mut atoms, dt, nose_hoover_chain.as_mut().unwrap());
+                    nose_hoover_chain.as_mut().unwrap().calculate_target_temperature(i, time_steps);
+                    potential
                 }
-                "npt" => self.verlet_step_npt_mtk(
-                    &mut atoms,
-                    dt,
-                    &mut mtk_barostat.as_mut().unwrap(),
-                    nose_hoover_chain.as_mut().unwrap(),
-                ),
+                "npt" => {
+                    let potential = self.verlet_step_npt_mtk(
+                        &mut atoms,
+                        dt,
+                        &mut mtk_barostat.as_mut().unwrap(),
+                        nose_hoover_chain.as_mut().unwrap(),
+                    );
+                    nose_hoover_chain.as_mut().unwrap().calculate_target_temperature(i, time_steps);
+                    potential
+                },
                 _ => panic!("Ensemble unknown"),
             };
             if ((i + 1) % ctx.dump_args.dump_step) == 0 {
