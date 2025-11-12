@@ -7,7 +7,9 @@ pub struct NHThermostatChain {
     #[allow(dead_code)]
     pub group: String,
     pub chain_size: usize,
-    pub target_temp: f64,
+    pub start_temperature: f64,
+    pub end_temperature: f64,
+    pub target_temperature: f64,
     pub xi: Vec<f64>,  // thermostat velocities
     pub eta: Vec<f64>, // thermostat coordinates
     pub g: Vec<f64>,   // thermostat forces
@@ -16,7 +18,15 @@ pub struct NHThermostatChain {
 
 impl NHThermostatChain {
     // tau is the reaxation time for the thermostat chain
-    pub fn new(name: String, group: String, temperature: f64, tau: f64, chain_size: usize) -> Self {
+    pub fn new(
+        name: String,
+        group: String,
+        start_temperature: f64,
+        end_temperature: f64,
+        target_temperature: f64,
+        tau: f64,
+        chain_size: usize,
+    ) -> Self {
         // initialise thermostat velocities, positions forces and masses to 0.0
         let xi = vec![0.0; chain_size];
         let eta = vec![0.0; chain_size];
@@ -24,7 +34,7 @@ impl NHThermostatChain {
         let mut q = vec![0.0; chain_size];
 
         // mass of the first thermostat
-        let q_value = KB_KJPERMOLEKELVIN * temperature * tau.powi(2);
+        let q_value = KB_KJPERMOLEKELVIN * target_temperature * tau.powi(2);
 
         // damp the higher thermostats by a factor of 10
         for i in 0..chain_size {
@@ -35,7 +45,9 @@ impl NHThermostatChain {
             name,
             group,
             chain_size,
-            target_temp: temperature,
+            start_temperature,
+            end_temperature,
+            target_temperature,
             xi,
             eta,
             g,
@@ -46,13 +58,13 @@ impl NHThermostatChain {
     // Compute generalized thermostat forces
     pub fn compute_forces(&mut self, kinetic_energy: f64, n_atoms: usize) {
         // G1​= 2K − Ndof ​kB ​T
-        self.g[0] =
-            2.0 * kinetic_energy - ((n_atoms * 3) as f64) * KB_KJPERMOLEKELVIN * self.target_temp;
+        self.g[0] = 2.0 * kinetic_energy
+            - ((n_atoms * 3) as f64) * KB_KJPERMOLEKELVIN * self.target_temperature;
 
         for j in 1..self.chain_size {
             // Gj ​= Q(j−1) ​ξ(j−1)^2​ − kB​ T for j≥2
-            self.g[j] =
-                self.q[j - 1] * self.xi[j - 1].powi(2) - KB_KJPERMOLEKELVIN * self.target_temp;
+            self.g[j] = self.q[j - 1] * self.xi[j - 1].powi(2)
+                - KB_KJPERMOLEKELVIN * self.target_temperature;
         }
     }
 
@@ -77,9 +89,9 @@ impl NHThermostatChain {
 
     pub fn potential_energy(&self, n_atoms: usize) -> f64 {
         let mut thermostat_pe =
-            (n_atoms * 3) as f64 * KB_KJPERMOLEKELVIN * self.target_temp * self.eta[0];
+            (n_atoms * 3) as f64 * KB_KJPERMOLEKELVIN * self.target_temperature * self.eta[0];
         for i in 1..self.chain_size {
-            thermostat_pe += KB_KJPERMOLEKELVIN * self.target_temp * self.eta[i];
+            thermostat_pe += KB_KJPERMOLEKELVIN * self.target_temperature * self.eta[i];
         }
         thermostat_pe
     }
@@ -90,10 +102,23 @@ impl NHThermostatChain {
                 args.name.to_string(),
                 args.group.to_string(),
                 args.start_temperature,
+                args.end_temperature,
+                args.start_temperature,
                 args.tau,
                 3,
             )),
             None => None,
         }
+    }
+
+    pub fn calculate_target_temperature(
+        &mut self,
+        current_timestep: usize,
+        total_timesteps: usize,
+    ) {
+        // T_target = T_start + ((T_end - T_start) / total_timesteps) * current_timestep
+        self.target_temperature = self.start_temperature
+            + ((self.end_temperature - self.start_temperature) / (total_timesteps) as f64)
+                * current_timestep as f64;
     }
 }
