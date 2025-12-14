@@ -29,12 +29,10 @@ use crate::{
 /// A typical main then looks like this:
 /// 
 /// ```
-/// use crate::args_parser::Args;
 /// use crate::system::System;
 /// 
 /// fn main() {
-/// let args = Args::parse();
-/// System::new(args.infile).read().contextualize().run();
+///     System::new(path_to_file).read().contextualize().run();
 /// }
 /// ```
 pub struct System {

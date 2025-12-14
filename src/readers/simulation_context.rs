@@ -1,3 +1,4 @@
+//! This module defines structs which store the information provided for the simulation.
 use na::Matrix3;
 
 use crate::{atoms::new::Atoms, potentials::potential::PotentialManager};
