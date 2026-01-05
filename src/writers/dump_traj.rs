@@ -1,3 +1,4 @@
+//! Structs for dumping of trajectory output to be found here
 use std::{
     fs::File,
     io::{BufWriter, Result, Write},
@@ -7,6 +8,7 @@ use crate::{
     atoms::new::Atoms, readers::simulation_context::DumpArgs, simulation_box::SimulationBox,
 };
 
+/// This struct helps write the trajectory of the simulation as a .traj text file
 pub struct DumpTraj {
     out: BufWriter<File>,
 }

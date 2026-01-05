@@ -1,3 +1,4 @@
+//! Structs to read individual commands in the input file can be found here
 use std::{
     fs::File,
     io::{BufRead, BufReader},

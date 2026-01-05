@@ -1,3 +1,4 @@
+//! The pivotal struct to initialize and run the system can be found here
 use std::{
     collections::HashMap,
     fs::File,

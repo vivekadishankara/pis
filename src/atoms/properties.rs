@@ -1,15 +1,19 @@
+//! This module holds the function to calculate the properties for the system for the Atom struct.
 use na::{Matrix3, Matrix3xX};
 
 use crate::atoms::new::Atoms;
 use crate::constants::KB_KJPERMOLEKELVIN;
 
 impl Atoms {
+    /// gets the mass of the atoms according to the type of the atom.
     pub fn mass_i(&self, i: usize) -> f64 {
         let type_id = self.type_ids[i] - 1;
         let mass = self.masses[type_id];
         mass
     }
 
+    /// calculates the kinetic energy of the system according to the sum:
+    /// sum(1/2 m*v^2)
     pub fn kinetic_energy(&self) -> f64 {
         let mut ek: f64 = 0.0;
         for (i, velocity) in self.velocities.column_iter().enumerate() {
@@ -19,6 +23,8 @@ impl Atoms {
         ek
     }
 
+    /// calculates the temperature of the system using the kinetic energy of the system
+    /// sum()
     pub fn temerature(&self, kinetic_energy: f64) -> f64 {
         (2.0 * kinetic_energy) / (self.degress_of_freedom() as f64 * KB_KJPERMOLEKELVIN)
     }

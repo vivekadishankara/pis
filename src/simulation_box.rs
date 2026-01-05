@@ -1,5 +1,7 @@
+//! The simulation box struct defining the box coverinng the simulation can be found here
 use na::{Const, Matrix3, MatrixViewMut, Vector3};
 
+/// This struct defines the matrices defining the box enclosing the simulation
 pub struct SimulationBox {
     pub h: Matrix3<f64>,
     pub h_inv: Matrix3<f64>,
