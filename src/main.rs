@@ -4,6 +4,7 @@ mod args_parser;
 mod atoms;
 mod constants;
 mod ensemble;
+mod errors;
 mod math;
 mod potentials;
 mod readers;

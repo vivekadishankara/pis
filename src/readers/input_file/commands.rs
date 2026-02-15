@@ -6,27 +6,70 @@ use std::{
 use na::{DVector, Matrix3, Matrix3xX};
 
 use crate::{
-    atoms::new::Atoms,
-    potentials::{
+    atoms::new::Atoms, errors::{PisError, Result}, potentials::{
         lennard_jones::{LJVOffsetManager, LennardJones},
         potential::PairPotentialManager,
-    },
-    readers::simulation_context::{
+    }, readers::simulation_context::{
         MTKBarostatArgs, NHThermostatChainArgs, PotentialArgs, SimulationContext, StartVelocity,
         VelocityDistribution,
-    },
-    simulation_box::SimulationBox,
+    }, simulation_box::SimulationBox
 };
 
+trait ArgsExt {
+    fn get_required(&self, index: usize, line: usize) -> Result<&str>;
+    fn parse_int_at(&self, index: usize, line: usize) -> Result<i32>;
+    fn parse_float_at(&self, index: usize, line: usize) -> Result<f64>;
+}
+
+impl ArgsExt for [&str] {
+    fn get_required(&self, index: usize, line: usize) -> Result<&str> {
+        self.get(index)
+            .copied()
+            .ok_or(PisError::MissingArgument { line })
+    }
+    
+    fn parse_int_at(&self, index: usize, line: usize) -> Result<i32> {
+        let arg = self.get_required(index, line)?;
+        arg.parse()
+            .map_err(|e| PisError::IntParseError {
+                string: arg.to_string(),
+                source: e,
+            })
+    }
+
+    fn parse_float_at(&self, index: usize, line: usize) -> Result<f64> {
+        let arg = self.get_required(index, line)?;
+        arg.parse()
+            .map_err(|e| PisError::FloatParseError { 
+                string: arg.to_string(),
+                source: e 
+            })
+    }
+}
+
+trait Int32ToUsize {
+    fn convert_to_usize(&self, line: usize) -> Result<usize>;
+}
+
+impl Int32ToUsize for i32 {
+    fn convert_to_usize(&self, line: usize) -> Result<usize> {
+        (*self).try_into()
+            .map_err(|_| PisError::NegativeValue{
+                value: (*self),
+                line: line
+            })
+    }
+}
+
 pub trait Command {
-    fn run(&self, args: &[&str], ctx: &mut SimulationContext) -> anyhow::Result<()>;
+    fn run(&self, args: &[&str], line:usize, ctx: &mut SimulationContext) -> Result<()>;
 }
 
 pub struct TimeStep;
 
 impl Command for TimeStep {
-    fn run(&self, args: &[&str], ctx: &mut SimulationContext) -> anyhow::Result<()> {
-        ctx.timestep = args[0].parse()?;
+    fn run(&self, args: &[&str], line:usize, ctx: &mut SimulationContext) -> Result<()> {
+        ctx.timestep = args.parse_float_at(0, line)?;
         Ok(())
     }
 }
@@ -34,8 +77,8 @@ impl Command for TimeStep {
 pub struct RunSteps;
 
 impl Command for RunSteps {
-    fn run(&self, args: &[&str], ctx: &mut SimulationContext) -> anyhow::Result<()> {
-        ctx.steps = args[0].parse()?;
+    fn run(&self, args: &[&str], line:usize, ctx: &mut SimulationContext) -> Result<()> {
+        ctx.steps = args.parse_int_at(0, line)?.convert_to_usize(line)?;
         Ok(())
     }
 }
@@ -43,32 +86,26 @@ impl Command for RunSteps {
 pub struct Velocity;
 
 impl Command for Velocity {
-    fn run(&self, args: &[&str], ctx: &mut SimulationContext) -> anyhow::Result<()> {
+    fn run(&self, args: &[&str], line:usize, ctx: &mut SimulationContext) -> Result<()> {
         let mut read_args = 0;
         let mut start_velocity = StartVelocity::default();
-        start_velocity.group = String::from(args[read_args]);
+        start_velocity.group = String::from(args.get_required(read_args, line)?);
         read_args += 1;
-        let style = args[read_args];
+        let style = args.get_required(read_args, line)?;
         read_args += 1;
         match style {
             "create" => {
-                start_velocity.start_temperature = Some(args[read_args].parse()?);
+                start_velocity.start_temperature = Some(args.parse_float_at(read_args, line)?);
                 read_args += 1;
-                start_velocity.seed = match args.get(read_args) {
-                    Some(entry) => {
-                        let entry_seed = match entry.parse::<usize>() {
-                            Ok(read_seed) => {
-                                read_args += 1;
-                                read_seed
-                            }
-                            Err(_) => 0,
-                        };
-                        Some(entry_seed)
-                    }
-                    None => Some(0),
+                start_velocity.seed = match args.parse_int_at(read_args, line) {
+                    Ok(seed) => {
+                        read_args += 1;
+                        Some(seed.convert_to_usize(line)?)
+                    },
+                    Err(_) => Some(0),
                 };
             }
-            _ => println!("velocity style unknown"),
+            _ => return Err(PisError::InvalidArgument { string: style.to_string(), line }),
         }
         loop {
             let keyword = match args.get(read_args) {
@@ -82,15 +119,16 @@ impl Command for Velocity {
             };
 
             match keyword {
-                "dist" => match args[read_args] {
+                "dist" => {
+                    let keyword_arg = args.get_required(read_args, line)?;
+                    match keyword_arg {
                     "uniform" => start_velocity.dist = Some(VelocityDistribution::Uniform),
                     "gaussian" => start_velocity.dist = Some(VelocityDistribution::Gaussian),
-                    _ => println!("velocity distribution unknown"),
+                    _ => return Err(PisError::InvalidArgument { string: keyword_arg.to_string(), line }),
+                    }
                 },
-                _ => {
-                    println!("velocity keyword unknown");
-                    break;
-                }
+                
+                _ => return Err(PisError::InvalidArgument { string: keyword.to_string(), line })
             };
         }
         ctx.starting_velocity = Some(start_velocity);
@@ -102,8 +140,10 @@ impl Command for Velocity {
 pub struct ReadData;
 
 impl Command for ReadData {
-    fn run(&self, args: &[&str], ctx: &mut SimulationContext) -> anyhow::Result<()> {
-        let file = File::open(args[0])?;
+    fn run(&self, args: &[&str], line:usize, ctx: &mut SimulationContext) -> Result<()> {
+        let path = args.get_required(0, line)?;
+        let file = File::open(path)
+            .map_err(|e| PisError::InputFileError { path: path.to_string(), source: e })?;
         let reader = BufReader::new(file);
 
         let mut section = String::new();
@@ -123,8 +163,13 @@ impl Command for ReadData {
 
         let mut mgr = LJVOffsetManager::new();
 
-        for line in reader.lines() {
-            let line = line?;
+        for (line_num, line) in reader.lines().enumerate() {
+            let line = line
+                .map_err(|e| PisError::DataFileError { 
+                    path: path.to_string(), 
+                    line: line_num, 
+                    source: e 
+                })?;
             let line = line.trim();
 
             if line.is_empty() || line.starts_with('#') {
@@ -132,8 +177,9 @@ impl Command for ReadData {
             }
 
             let line_split: Vec<&str> = line.split_whitespace().collect();
-
-            match line_split[0] {
+            
+            let first_word = line_split.get_required(0, line_num)?;
+            match first_word {
                 "Masses" | "Atoms" | "PairCoeffs" => {
                     section = line_split[0].to_string();
                     continue;
@@ -149,14 +195,14 @@ impl Command for ReadData {
             if line_split.len() > 1 {
                 match line_split[1] {
                     "atoms" => {
-                        n_atoms = line_split[0].parse()?;
+                        n_atoms = line_split.parse_int_at(0, line_num)?.convert_to_usize(line_num)?;
                         type_ids = DVector::zeros(n_atoms);
                         positions = Matrix3xX::zeros(n_atoms);
                         velocities = Matrix3xX::zeros(n_atoms);
                         continue;
                     }
                     "atom" => {
-                        let n_types = line_split[0].parse()?;
+                        let n_types = line_split.parse_int_at(0, line_num)?.convert_to_usize(line_num)?;
                         masses.resize(n_types, 0.0);
                         continue;
                     }
@@ -167,18 +213,18 @@ impl Command for ReadData {
             if line_split.iter().len() > 2 {
                 match line_split[2] {
                     "xlo" => {
-                        xlo = line_split[0].parse()?;
-                        xhi = line_split[1].parse()?;
+                        xlo = line_split.parse_float_at(0, line_num)?;
+                        xhi = line_split.parse_float_at(1, line_num)?;
                         continue;
                     }
                     "ylo" => {
-                        ylo = line_split[0].parse()?;
-                        yhi = line_split[1].parse()?;
+                        ylo = line_split.parse_float_at(0, line_num)?;
+                        yhi = line_split.parse_float_at(1, line_num)?;
                         continue;
                     }
                     "zlo" => {
-                        zlo = line_split[0].parse()?;
-                        zhi = line_split[1].parse()?;
+                        zlo = line_split.parse_float_at(0, line_num)?;
+                        zhi = line_split.parse_float_at(1, line_num)?;
                         continue;
                     }
                     _ => {}
@@ -187,7 +233,7 @@ impl Command for ReadData {
 
             match section.as_str() {
                 "Masses" => {
-                    let type_id: usize = line_split[0].parse()?;
+                    let type_id: usize = line_split.parse_int_at(0, line_num)?.convert_to_usize(line_num)?;
                     let mass: f64 = line_split[1].parse()?;
                     masses[type_id - 1] = mass;
                 }
@@ -285,7 +331,7 @@ impl Command for ReadData {
 pub struct Fix;
 
 impl Command for Fix {
-    fn run(&self, args: &[&str], ctx: &mut SimulationContext) -> anyhow::Result<()> {
+    fn run(&self, args: &[&str], line:usize, ctx: &mut SimulationContext) -> Result<()> {
         let mut read_args: usize = 0;
 
         let name = String::from(args[read_args]);
@@ -357,7 +403,7 @@ impl Command for Fix {
 pub struct PairStyle;
 
 impl Command for PairStyle {
-    fn run(&self, args: &[&str], ctx: &mut SimulationContext) -> anyhow::Result<()> {
+    fn run(&self, args: &[&str], line:usize, ctx: &mut SimulationContext) -> Result<()> {
         let args: Vec<String> = args.iter().map(|entry| entry.to_string()).collect();
         let mut potential_args = PotentialArgs::default();
         potential_args.pair_style_args = args;
@@ -369,7 +415,7 @@ impl Command for PairStyle {
 pub struct PairCoeff;
 
 impl Command for PairCoeff {
-    fn run(&self, args: &[&str], ctx: &mut SimulationContext) -> anyhow::Result<()> {
+    fn run(&self, args: &[&str], line:usize, ctx: &mut SimulationContext) -> Result<()> {
         let args: Vec<String> = args.iter().map(|entry| entry.to_string()).collect();
         if let Some(potential_args) = &mut ctx.potential_args {
             potential_args.pair_coeff_args.push(args);
@@ -381,7 +427,7 @@ impl Command for PairCoeff {
 pub struct Dump;
 
 impl Command for Dump {
-    fn run(&self, args: &[&str], ctx: &mut SimulationContext) -> anyhow::Result<()> {
+    fn run(&self, args: &[&str], line:usize, ctx: &mut SimulationContext) -> Result<()> {
         let mut read_args = 0;
         ctx.dump_args.name = args[read_args].to_string();
         read_args += 1;

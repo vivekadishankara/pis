@@ -58,7 +58,7 @@ impl System {
 
         self.build_command_hash();
 
-        for line in reader.lines() {
+        for (line_num, line) in reader.lines().enumerate() {
             let line = line.unwrap();
             let line = line.trim();
 
@@ -72,9 +72,9 @@ impl System {
 
             let command = line_split[0];
             let args = &line_split[1..];
-
+            
             if let Some(handler) = self.command_hash.get(command) {
-                let _ = handler.run(args, &mut self.ctx);
+                let _ = handler.run(args, line_num + 1, &mut self.ctx);
             } else {
                 println!("Command Unkown");
             }
