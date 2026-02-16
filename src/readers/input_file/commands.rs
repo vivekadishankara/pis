@@ -234,26 +234,29 @@ impl Command for ReadData {
             match section.as_str() {
                 "Masses" => {
                     let type_id: usize = line_split.parse_int_at(0, line_num)?.convert_to_usize(line_num)?;
-                    let mass: f64 = line_split[1].parse()?;
+                    let mass: f64 = line_split.parse_float_at(1, line_num)?;
+                    if type_id < 1 {
+                        return Err(PisError::InvalidAtomType { type_id })
+                    }
                     masses[type_id - 1] = mass;
                 }
                 "PairCoeffs" => {
-                    let i: usize = line_split[0].parse()?;
-                    if let Ok(epsilon) = line_split[1].parse::<f64>() {
-                        let sigma: f64 = line_split[2].parse()?;
-                        let rcut: f64 = match line_split.get(3) {
-                            Some(rcut_str) => rcut_str.parse::<f64>()?,
-                            None => 2.5 * sigma,
+                    let i: usize = line_split.parse_int_at(0, line_num)?.convert_to_usize(line_num)?;
+                    if let Ok(epsilon) = line_split.parse_float_at(1, line_num) {
+                        let sigma: f64 = line_split.parse_float_at(2, line_num)?;
+                        let rcut: f64 = match line_split.parse_float_at(3, line_num) {
+                            Ok(rcut) => rcut,
+                            Err(_) => 2.5 * sigma,
                         };
                         let lj_ii = LennardJones::new(epsilon, sigma, rcut, true);
                         mgr.insert((i, i), lj_ii);
                     } else {
-                        let j: usize = line_split[1].parse()?;
-                        let epsilon: f64 = line_split[2].parse()?;
-                        let sigma: f64 = line_split[3].parse()?;
-                        let rcut: f64 = match line_split.get(4) {
-                            Some(rcut_str) => rcut_str.parse::<f64>()?,
-                            None => 2.5 * sigma,
+                        let j: usize = line_split.parse_int_at(1, line_num)?.convert_to_usize(line_num)?;
+                        let epsilon: f64 = line_split.parse_float_at(2, line_num)?;
+                        let sigma: f64 = line_split.parse_float_at(3, line_num)?;
+                        let rcut: f64 = match line_split.parse_float_at(4, line_num) {
+                            Ok(rcut) => rcut,
+                            Err(_) => 2.5 * sigma,
                         };
                         let lj_ij = LennardJones::new(epsilon, sigma, rcut, true);
                         mgr.insert((i, j), lj_ij);
@@ -262,23 +265,29 @@ impl Command for ReadData {
                     continue;
                 }
                 "Atoms" => {
-                    let mut id: usize = line_split[0].parse()?;
+                    let mut id: usize = line_split.parse_int_at(0, line_num)?.convert_to_usize(line_num)?;
+                    if id == 0 || id > n_atoms {
+                        return Err(PisError::AtomCountMismatch { expected: n_atoms, found: id })
+                    }
                     id -= 1;
-                    let type_id: usize = line_split[1].parse()?;
+                    let type_id: usize = line_split.parse_int_at(1, line_num)?.convert_to_usize(line_num)?;
                     type_ids[id] = type_id;
-                    let x: f64 = line_split[2].parse()?;
-                    let y: f64 = line_split[3].parse()?;
-                    let z: f64 = line_split[4].parse()?;
+                    let x: f64 = line_split.parse_float_at(2, line_num)?;
+                    let y: f64 = line_split.parse_float_at(3, line_num)?;
+                    let z: f64 = line_split.parse_float_at(4, line_num)?;
                     positions[(0, id)] = x;
                     positions[(1, id)] = y;
                     positions[(2, id)] = z;
                 }
                 "Velocities" => {
-                    let mut id: usize = line_split[0].parse()?;
+                    let mut id: usize = line_split.parse_int_at(0, line_num)?.convert_to_usize(line_num)?;
+                    if id == 0 || id > n_atoms {
+                        return Err(PisError::AtomCountMismatch { expected: n_atoms, found: id })
+                    }
                     id -= 1;
-                    let x: f64 = line_split[1].parse()?;
-                    let y: f64 = line_split[2].parse()?;
-                    let z: f64 = line_split[3].parse()?;
+                    let x: f64 = line_split.parse_float_at(1, line_num)?;
+                    let y: f64 = line_split.parse_float_at(2, line_num)?;
+                    let z: f64 = line_split.parse_float_at(3, line_num)?;
                     velocities[(0, id)] = x;
                     velocities[(1, id)] = y;
                     velocities[(2, id)] = z;
@@ -334,7 +343,7 @@ impl Command for Fix {
     fn run(&self, args: &[&str], line:usize, ctx: &mut SimulationContext) -> Result<()> {
         let mut read_args: usize = 0;
 
-        let name = String::from(args[read_args]);
+        let name = String::from(args.get_required(read_args, line)?);
         read_args += 1;
         let group = String::from(args[read_args]);
         read_args += 1;

@@ -72,8 +72,8 @@ pub enum PisError {
     NaNEnergy { id: usize, step: usize },
 
     // Array bounds errors
-    #[error("Atom type {type_id} out of range (max: {max_types})")]
-    InvalidAtomType { type_id: usize, max_types: usize },
+    #[error("Atom type {type_id} out of range")]
+    InvalidAtomType { type_id: usize },
 
     #[error("Atom index {index} out of range (total atoms: {n_atoms})")]
     InvalidAtomIndex { index: usize, n_atoms: usize },
