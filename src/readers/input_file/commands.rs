@@ -7,32 +7,73 @@ use std::{
 use na::{DVector, Matrix3, Matrix3xX};
 
 use crate::{
-    atoms::new::Atoms,
-    potentials::{
+    atoms::new::Atoms, errors::{PisError, Result}, potentials::{
         lennard_jones::{LJVOffsetManager, LennardJones},
         potential::PairPotentialManager,
-    },
-    readers::simulation_context::{
+    }, readers::simulation_context::{
         MTKBarostatArgs, NHThermostatChainArgs, PotentialArgs, SimulationContext, StartVelocity,
         VelocityDistribution,
-    },
-    simulation_box::SimulationBox,
+    }, simulation_box::SimulationBox
 };
 
+trait ArgsExt {
+    fn get_required(&self, index: usize, line: usize) -> Result<&str>;
+    fn parse_int_at(&self, index: usize, line: usize) -> Result<i32>;
+    fn parse_float_at(&self, index: usize, line: usize) -> Result<f64>;
+}
+
+impl ArgsExt for [&str] {
+    fn get_required(&self, index: usize, line: usize) -> Result<&str> {
+        self.get(index)
+            .copied()
+            .ok_or(PisError::MissingArgument { line })
+    }
+    
+    fn parse_int_at(&self, index: usize, line: usize) -> Result<i32> {
+        let arg = self.get_required(index, line)?;
+        arg.parse()
+            .map_err(|e| PisError::IntParseError {
+                string: arg.to_string(),
+                source: e,
+            })
+    }
+
+    fn parse_float_at(&self, index: usize, line: usize) -> Result<f64> {
+        let arg = self.get_required(index, line)?;
+        arg.parse()
+            .map_err(|e| PisError::FloatParseError { 
+                string: arg.to_string(),
+                source: e 
+            })
+    }
+}
+
+trait Int32ToUsize {
+    fn convert_to_usize(&self, line: usize) -> Result<usize>;
+}
+
+impl Int32ToUsize for i32 {
+    fn convert_to_usize(&self, line: usize) -> Result<usize> {
+        (*self).try_into()
+            .map_err(|_| PisError::NegativeValue{
+                value: (*self),
+                line: line
+            })
+    }
+}
+
 /// The trait which needs to be implemented to write a parser for the arguments of a particular command.
-// TODO: It currently returns a anyhow::Result which is not very good at handling errors. This needs to be changed.
-// In place, custom errors need to be defined to be returned on encountering different error scenarios
 pub trait Command {
     /// The parser function for each command
-    fn run(&self, args: &[&str], ctx: &mut SimulationContext) -> anyhow::Result<()>;
+    fn run(&self, args: &[&str], line:usize, ctx: &mut SimulationContext) -> Result<()>;
 }
 
 /// argument parser for the "timestep" command
 pub struct TimeStep;
 
 impl Command for TimeStep {
-    fn run(&self, args: &[&str], ctx: &mut SimulationContext) -> anyhow::Result<()> {
-        ctx.timestep = args[0].parse()?;
+    fn run(&self, args: &[&str], line:usize, ctx: &mut SimulationContext) -> Result<()> {
+        ctx.timestep = args.parse_float_at(0, line)?;
         Ok(())
     }
 }
@@ -41,8 +82,8 @@ impl Command for TimeStep {
 pub struct RunSteps;
 
 impl Command for RunSteps {
-    fn run(&self, args: &[&str], ctx: &mut SimulationContext) -> anyhow::Result<()> {
-        ctx.steps = args[0].parse()?;
+    fn run(&self, args: &[&str], line:usize, ctx: &mut SimulationContext) -> Result<()> {
+        ctx.steps = args.parse_int_at(0, line)?.convert_to_usize(line)?;
         Ok(())
     }
 }
@@ -51,33 +92,27 @@ impl Command for RunSteps {
 pub struct Velocity;
 
 impl Command for Velocity {
-    fn run(&self, args: &[&str], ctx: &mut SimulationContext) -> anyhow::Result<()> {
+    fn run(&self, args: &[&str], line:usize, ctx: &mut SimulationContext) -> Result<()> {
         let mut read_args = 0;
         let mut start_velocity = StartVelocity::default();
-        start_velocity.group = String::from(args[read_args]);
+        start_velocity.group = String::from(args.get_required(read_args, line)?);
         read_args += 1;
-        let style = args[read_args];
+        let style = args.get_required(read_args, line)?;
         read_args += 1;
         match style {
             // Of all the style options in the velocity command only create is available right now
             "create" => {
-                start_velocity.start_temperature = Some(args[read_args].parse()?);
+                start_velocity.start_temperature = Some(args.parse_float_at(read_args, line)?);
                 read_args += 1;
-                start_velocity.seed = match args.get(read_args) {
-                    Some(entry) => {
-                        let entry_seed = match entry.parse::<usize>() {
-                            Ok(read_seed) => {
-                                read_args += 1;
-                                read_seed
-                            }
-                            Err(_) => 0,
-                        };
-                        Some(entry_seed)
-                    }
-                    None => Some(0),
+                start_velocity.seed = match args.parse_int_at(read_args, line) {
+                    Ok(seed) => {
+                        read_args += 1;
+                        Some(seed.convert_to_usize(line)?)
+                    },
+                    Err(_) => Some(0),
                 };
             }
-            _ => println!("velocity style unknown"),
+            _ => return Err(PisError::InvalidArgument { string: style.to_string(), line }),
         }
         loop {
             let keyword = match args.get(read_args) {
@@ -91,15 +126,16 @@ impl Command for Velocity {
             };
 
             match keyword {
-                "dist" => match args[read_args] {
+                "dist" => {
+                    let keyword_arg = args.get_required(read_args, line)?;
+                    match keyword_arg {
                     "uniform" => start_velocity.dist = Some(VelocityDistribution::Uniform),
                     "gaussian" => start_velocity.dist = Some(VelocityDistribution::Gaussian),
-                    _ => println!("velocity distribution unknown"),
+                    _ => return Err(PisError::InvalidArgument { string: keyword_arg.to_string(), line }),
+                    }
                 },
-                _ => {
-                    println!("velocity keyword unknown");
-                    break;
-                }
+                
+                _ => return Err(PisError::InvalidArgument { string: keyword.to_string(), line })
             };
         }
         // Currently one one velocity command is allowed in the intput file.
@@ -113,9 +149,11 @@ impl Command for Velocity {
 pub struct ReadData;
 
 impl Command for ReadData {
-    fn run(&self, args: &[&str], ctx: &mut SimulationContext) -> anyhow::Result<()> {
+    fn run(&self, args: &[&str], line:usize, ctx: &mut SimulationContext) -> Result<()> {
         // the first argument is the path to the data file
-        let file = File::open(args[0])?;
+        let path = args.get_required(0, line)?;
+        let file = File::open(path)
+            .map_err(|e| PisError::InputFileError { path: path.to_string(), source: e })?;
         let reader = BufReader::new(file);
 
         let mut section = String::new();
@@ -135,8 +173,13 @@ impl Command for ReadData {
 
         let mut mgr = LJVOffsetManager::new();
 
-        for line in reader.lines() {
-            let line = line?;
+        for (line_num, line) in reader.lines().enumerate() {
+            let line = line
+                .map_err(|e| PisError::DataFileError { 
+                    path: path.to_string(), 
+                    line: line_num, 
+                    source: e 
+                })?;
             let line = line.trim();
 
             if line.is_empty() || line.starts_with('#') {
@@ -144,8 +187,10 @@ impl Command for ReadData {
             }
 
             let line_split: Vec<&str> = line.split_whitespace().collect();
+
             // Taking care of the possibility that the parser comes accross the headers in the data file
-            match line_split[0] {
+            let first_word = line_split.get_required(0, line_num)?;
+            match first_word {
                 "Masses" | "Atoms" | "PairCoeffs" => {
                     section = line_split[0].to_string();
                     continue;
@@ -163,7 +208,7 @@ impl Command for ReadData {
                     // reading the number of atoms in the system by reading the number in the line:
                     // "3 atoms"
                     "atoms" => {
-                        n_atoms = line_split[0].parse()?;
+                        n_atoms = line_split.parse_int_at(0, line_num)?.convert_to_usize(line_num)?;
                         type_ids = DVector::zeros(n_atoms);
                         positions = Matrix3xX::zeros(n_atoms);
                         velocities = Matrix3xX::zeros(n_atoms);
@@ -172,7 +217,7 @@ impl Command for ReadData {
                     // reading the number of atom types in the system by reading the number in the line:
                     // "2 atom types"
                     "atom" => {
-                        let n_types = line_split[0].parse()?;
+                        let n_types = line_split.parse_int_at(0, line_num)?.convert_to_usize(line_num)?;
                         masses.resize(n_types, 0.0);
                         continue;
                     }
@@ -185,18 +230,18 @@ impl Command for ReadData {
                     // reading the mlo and mhi numbers (where m can be x, y and z) in the line:
                     // "0.0 5.0 xlo xhi"
                     "xlo" => {
-                        xlo = line_split[0].parse()?;
-                        xhi = line_split[1].parse()?;
+                        xlo = line_split.parse_float_at(0, line_num)?;
+                        xhi = line_split.parse_float_at(1, line_num)?;
                         continue;
                     }
                     "ylo" => {
-                        ylo = line_split[0].parse()?;
-                        yhi = line_split[1].parse()?;
+                        ylo = line_split.parse_float_at(0, line_num)?;
+                        yhi = line_split.parse_float_at(1, line_num)?;
                         continue;
                     }
                     "zlo" => {
-                        zlo = line_split[0].parse()?;
-                        zhi = line_split[1].parse()?;
+                        zlo = line_split.parse_float_at(0, line_num)?;
+                        zhi = line_split.parse_float_at(1, line_num)?;
                         continue;
                     }
                     _ => {}
@@ -206,8 +251,11 @@ impl Command for ReadData {
             match section.as_str() {
                 "Masses" => {
                     // reading the masses along with the atoms types
-                    let type_id: usize = line_split[0].parse()?;
-                    let mass: f64 = line_split[1].parse()?;
+                    let type_id: usize = line_split.parse_int_at(0, line_num)?.convert_to_usize(line_num)?;
+                    let mass: f64 = line_split.parse_float_at(1, line_num)?;
+                    if type_id < 1 {
+                        return Err(PisError::InvalidAtomType { type_id })
+                    }
                     masses[type_id - 1] = mass;
                 }
                 "PairCoeffs" => {
@@ -215,22 +263,22 @@ impl Command for ReadData {
                     // "1 0.238 3.405 8.5", this means that the coefficients are for the atoms of type 1 and 1.
                     // if the lines looks like this:
                     // "1 2 0.238 3.405 8.5", then the coefficients are for interations between atom types 1 and 2
-                    let i: usize = line_split[0].parse()?;
-                    if let Ok(epsilon) = line_split[1].parse::<f64>() {
-                        let sigma: f64 = line_split[2].parse()?;
-                        let rcut: f64 = match line_split.get(3) {
-                            Some(rcut_str) => rcut_str.parse::<f64>()?,
-                            None => 2.5 * sigma,
+                    let i: usize = line_split.parse_int_at(0, line_num)?.convert_to_usize(line_num)?;
+                    if let Ok(epsilon) = line_split.parse_float_at(1, line_num) {
+                        let sigma: f64 = line_split.parse_float_at(2, line_num)?;
+                        let rcut: f64 = match line_split.parse_float_at(3, line_num) {
+                            Ok(rcut) => rcut,
+                            Err(_) => 2.5 * sigma,
                         };
                         let lj_ii = LennardJones::new(epsilon, sigma, rcut, true);
                         mgr.insert((i, i), lj_ii);
                     } else {
-                        let j: usize = line_split[1].parse()?;
-                        let epsilon: f64 = line_split[2].parse()?;
-                        let sigma: f64 = line_split[3].parse()?;
-                        let rcut: f64 = match line_split.get(4) {
-                            Some(rcut_str) => rcut_str.parse::<f64>()?,
-                            None => 2.5 * sigma,
+                        let j: usize = line_split.parse_int_at(1, line_num)?.convert_to_usize(line_num)?;
+                        let epsilon: f64 = line_split.parse_float_at(2, line_num)?;
+                        let sigma: f64 = line_split.parse_float_at(3, line_num)?;
+                        let rcut: f64 = match line_split.parse_float_at(4, line_num) {
+                            Ok(rcut) => rcut,
+                            Err(_) => 2.5 * sigma,
                         };
                         let lj_ij = LennardJones::new(epsilon, sigma, rcut, true);
                         mgr.insert((i, j), lj_ij);
@@ -241,13 +289,16 @@ impl Command for ReadData {
                     // reading atoms from the data file. The line looks like this:
                     // "31 1 0.0 0.0 0.0"
                     // atom_number, atom_type, x_coord, y_coord, z_coord
-                    let mut id: usize = line_split[0].parse()?;
+                    let mut id: usize = line_split.parse_int_at(0, line_num)?.convert_to_usize(line_num)?;
+                    if id == 0 || id > n_atoms {
+                        return Err(PisError::AtomCountMismatch { expected: n_atoms, found: id })
+                    }
                     id -= 1;
-                    let type_id: usize = line_split[1].parse()?;
+                    let type_id: usize = line_split.parse_int_at(1, line_num)?.convert_to_usize(line_num)?;
                     type_ids[id] = type_id;
-                    let x: f64 = line_split[2].parse()?;
-                    let y: f64 = line_split[3].parse()?;
-                    let z: f64 = line_split[4].parse()?;
+                    let x: f64 = line_split.parse_float_at(2, line_num)?;
+                    let y: f64 = line_split.parse_float_at(3, line_num)?;
+                    let z: f64 = line_split.parse_float_at(4, line_num)?;
                     positions[(0, id)] = x;
                     positions[(1, id)] = y;
                     positions[(2, id)] = z;
@@ -256,11 +307,14 @@ impl Command for ReadData {
                     // reading atom velocities from the line that looks like this:
                     // "31 0.0 0.0 0.0"
                     // atom_number, x_coord, y_coord, z_coord
-                    let mut id: usize = line_split[0].parse()?;
+                    let mut id: usize = line_split.parse_int_at(0, line_num)?.convert_to_usize(line_num)?;
+                    if id == 0 || id > n_atoms {
+                        return Err(PisError::AtomCountMismatch { expected: n_atoms, found: id })
+                    }
                     id -= 1;
-                    let x: f64 = line_split[1].parse()?;
-                    let y: f64 = line_split[2].parse()?;
-                    let z: f64 = line_split[3].parse()?;
+                    let x: f64 = line_split.parse_float_at(1, line_num)?;
+                    let y: f64 = line_split.parse_float_at(2, line_num)?;
+                    let z: f64 = line_split.parse_float_at(3, line_num)?;
                     velocities[(0, id)] = x;
                     velocities[(1, id)] = y;
                     velocities[(2, id)] = z;
@@ -318,15 +372,15 @@ impl Command for ReadData {
 pub struct Fix;
 
 impl Command for Fix {
-    fn run(&self, args: &[&str], ctx: &mut SimulationContext) -> anyhow::Result<()> {
+    fn run(&self, args: &[&str], line:usize, ctx: &mut SimulationContext) -> Result<()> {
         let mut read_args: usize = 0;
 
-        let name = String::from(args[read_args]);
+        let name = String::from(args.get_required(read_args, line)?);
         read_args += 1;
-        let group = String::from(args[read_args]);
+        let group = String::from(args.get_required(read_args, line)?);
         read_args += 1;
         // Style can either be "npt" or "nvt"
-        let style = args[read_args];
+        let style = args.get_required(read_args, line)?;
         read_args += 1;
 
         loop {
@@ -341,11 +395,11 @@ impl Command for Fix {
             };
             match keyword {
                 "temp" => {
-                    let start_temperature: f64 = args[read_args].parse()?;
+                    let start_temperature: f64 = args.parse_float_at(read_args, line)?;
                     read_args += 1;
-                    let end_temperature: f64 = args[read_args].parse()?;
+                    let end_temperature: f64 = args.parse_float_at(read_args, line)?;
                     read_args += 1;
-                    let tau: f64 = args[read_args].parse()?;
+                    let tau: f64 = args.parse_float_at(read_args, line)?;
                     read_args += 1;
                     let name = name.clone();
                     let group = group.clone();
@@ -361,11 +415,11 @@ impl Command for Fix {
                     }
                 }
                 "iso" => {
-                    let start_pressure: f64 = args[read_args].parse()?;
+                    let start_pressure: f64 = args.parse_float_at(read_args, line)?;
                     read_args += 1;
-                    let _end_pressure: f64 = args[read_args].parse()?;
+                    let _end_pressure: f64 = args.parse_float_at(read_args, line)?;
                     read_args += 1;
-                    let tau: f64 = args[read_args].parse()?;
+                    let tau: f64 = args.parse_float_at(read_args, line)?;
                     read_args += 1;
                     let name = name.clone();
                     let group = group.clone();
@@ -393,7 +447,7 @@ impl Command for Fix {
 pub struct PairStyle;
 
 impl Command for PairStyle {
-    fn run(&self, args: &[&str], ctx: &mut SimulationContext) -> anyhow::Result<()> {
+    fn run(&self, args: &[&str], _line:usize, ctx: &mut SimulationContext) -> Result<()> {
         let args: Vec<String> = args.iter().map(|entry| entry.to_string()).collect();
         let mut potential_args = PotentialArgs::default();
         potential_args.pair_style_args = args;
@@ -406,7 +460,7 @@ impl Command for PairStyle {
 pub struct PairCoeff;
 
 impl Command for PairCoeff {
-    fn run(&self, args: &[&str], ctx: &mut SimulationContext) -> anyhow::Result<()> {
+    fn run(&self, args: &[&str], _line:usize, ctx: &mut SimulationContext) -> Result<()> {
         let args: Vec<String> = args.iter().map(|entry| entry.to_string()).collect();
         if let Some(potential_args) = &mut ctx.potential_args {
             potential_args.pair_coeff_args.push(args);
@@ -419,17 +473,17 @@ impl Command for PairCoeff {
 pub struct Dump;
 
 impl Command for Dump {
-    fn run(&self, args: &[&str], ctx: &mut SimulationContext) -> anyhow::Result<()> {
+    fn run(&self, args: &[&str], line:usize, ctx: &mut SimulationContext) -> Result<()> {
         let mut read_args = 0;
-        ctx.dump_args.name = args[read_args].to_string();
+        ctx.dump_args.name = args.get_required(read_args, line)?.to_string();
         read_args += 1;
-        ctx.dump_args.group = args[read_args].to_string();
+        ctx.dump_args.group = args.get_required(read_args, line)?.to_string();
         read_args += 1;
-        ctx.dump_args.style = args[read_args].to_string();
+        ctx.dump_args.style = args.get_required(read_args, line)?.to_string();
         read_args += 1;
-        ctx.dump_args.dump_step = args[read_args].parse()?;
+        ctx.dump_args.dump_step = args.parse_int_at(read_args, line)?.convert_to_usize(line)?;
         read_args += 1;
-        ctx.dump_args.file_name = args[read_args].to_string();
+        ctx.dump_args.file_name = args.get_required(read_args, line)?.to_string();
         Ok(())
     }
 }
