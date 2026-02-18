@@ -345,9 +345,9 @@ impl Command for Fix {
 
         let name = String::from(args.get_required(read_args, line)?);
         read_args += 1;
-        let group = String::from(args[read_args]);
+        let group = String::from(args.get_required(read_args, line)?);
         read_args += 1;
-        let style = args[read_args];
+        let style = args.get_required(read_args, line)?;
         read_args += 1;
 
         loop {
@@ -362,11 +362,11 @@ impl Command for Fix {
             };
             match keyword {
                 "temp" => {
-                    let start_temperature: f64 = args[read_args].parse()?;
+                    let start_temperature: f64 = args.parse_float_at(read_args, line)?;
                     read_args += 1;
-                    let end_temperature: f64 = args[read_args].parse()?;
+                    let end_temperature: f64 = args.parse_float_at(read_args, line)?;
                     read_args += 1;
-                    let tau: f64 = args[read_args].parse()?;
+                    let tau: f64 = args.parse_float_at(read_args, line)?;
                     read_args += 1;
                     let name = name.clone();
                     let group = group.clone();
@@ -382,11 +382,11 @@ impl Command for Fix {
                     }
                 }
                 "iso" => {
-                    let start_pressure: f64 = args[read_args].parse()?;
+                    let start_pressure: f64 = args.parse_float_at(read_args, line)?;
                     read_args += 1;
-                    let _end_pressure: f64 = args[read_args].parse()?;
+                    let _end_pressure: f64 = args.parse_float_at(read_args, line)?;
                     read_args += 1;
-                    let tau: f64 = args[read_args].parse()?;
+                    let tau: f64 = args.parse_float_at(read_args, line)?;
                     read_args += 1;
                     let name = name.clone();
                     let group = group.clone();
@@ -412,7 +412,7 @@ impl Command for Fix {
 pub struct PairStyle;
 
 impl Command for PairStyle {
-    fn run(&self, args: &[&str], line:usize, ctx: &mut SimulationContext) -> Result<()> {
+    fn run(&self, args: &[&str], _line:usize, ctx: &mut SimulationContext) -> Result<()> {
         let args: Vec<String> = args.iter().map(|entry| entry.to_string()).collect();
         let mut potential_args = PotentialArgs::default();
         potential_args.pair_style_args = args;
@@ -424,7 +424,7 @@ impl Command for PairStyle {
 pub struct PairCoeff;
 
 impl Command for PairCoeff {
-    fn run(&self, args: &[&str], line:usize, ctx: &mut SimulationContext) -> Result<()> {
+    fn run(&self, args: &[&str], _line:usize, ctx: &mut SimulationContext) -> Result<()> {
         let args: Vec<String> = args.iter().map(|entry| entry.to_string()).collect();
         if let Some(potential_args) = &mut ctx.potential_args {
             potential_args.pair_coeff_args.push(args);
@@ -438,15 +438,15 @@ pub struct Dump;
 impl Command for Dump {
     fn run(&self, args: &[&str], line:usize, ctx: &mut SimulationContext) -> Result<()> {
         let mut read_args = 0;
-        ctx.dump_args.name = args[read_args].to_string();
+        ctx.dump_args.name = args.get_required(read_args, line)?.to_string();
         read_args += 1;
-        ctx.dump_args.group = args[read_args].to_string();
+        ctx.dump_args.group = args.get_required(read_args, line)?.to_string();
         read_args += 1;
-        ctx.dump_args.style = args[read_args].to_string();
+        ctx.dump_args.style = args.get_required(read_args, line)?.to_string();
         read_args += 1;
-        ctx.dump_args.dump_step = args[read_args].parse()?;
+        ctx.dump_args.dump_step = args.parse_int_at(read_args, line)?.convert_to_usize(line)?;
         read_args += 1;
-        ctx.dump_args.file_name = args[read_args].to_string();
+        ctx.dump_args.file_name = args.get_required(read_args, line)?.to_string();
         Ok(())
     }
 }
