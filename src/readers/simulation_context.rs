@@ -1,12 +1,15 @@
+//! This module defines structs which store the information provided for the simulation.
 use na::Matrix3;
 
 use crate::{atoms::new::Atoms, potentials::potential::PotentialManager};
 
+/// An enum for the style of velocity distribution
 pub enum VelocityDistribution {
     Uniform,
     Gaussian,
 }
 
+/// Context for the "velocity" command
 pub struct StartVelocity {
     pub group: String,
     pub start_velocity: bool,
@@ -27,6 +30,7 @@ impl Default for StartVelocity {
     }
 }
 
+/// Context for the thermostat for the fix command for nvt and npt style
 pub struct NHThermostatChainArgs {
     pub name: String,
     pub group: String,
@@ -36,6 +40,7 @@ pub struct NHThermostatChainArgs {
     pub tau: f64,
 }
 
+/// Context for the barostat for the fix command for npt style
 pub struct MTKBarostatArgs {
     pub name: String,
     pub group: String,
@@ -45,6 +50,7 @@ pub struct MTKBarostatArgs {
     pub tau: f64,
 }
 
+/// Context for the Potential arguments combining the arguments for "pair_style" and "pair_coeff" command
 pub struct PotentialArgs {
     pub pair_style_args: Vec<String>,
     pub pair_coeff_args: Vec<Vec<String>>,
@@ -62,6 +68,7 @@ impl Default for PotentialArgs {
     }
 }
 
+/// Context for the "dump" command
 pub struct DumpArgs {
     pub name: String,
     pub group: String,
@@ -88,6 +95,7 @@ impl Default for DumpArgs {
     }
 }
 
+/// Context for the entire molecular dynamic run
 pub struct SimulationContext {
     pub atoms: Option<Atoms>,
     pub timestep: f64,

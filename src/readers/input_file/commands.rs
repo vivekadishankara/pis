@@ -1,3 +1,4 @@
+//! Structs to read individual commands in the input file can be found here
 use std::{
     fs::File,
     io::{BufRead, BufReader},
@@ -61,10 +62,13 @@ impl Int32ToUsize for i32 {
     }
 }
 
+/// The trait which needs to be implemented to write a parser for the arguments of a particular command.
 pub trait Command {
+    /// The parser function for each command
     fn run(&self, args: &[&str], line:usize, ctx: &mut SimulationContext) -> Result<()>;
 }
 
+/// argument parser for the "timestep" command
 pub struct TimeStep;
 
 impl Command for TimeStep {
@@ -74,6 +78,7 @@ impl Command for TimeStep {
     }
 }
 
+/// Argument parser for the "run" command
 pub struct RunSteps;
 
 impl Command for RunSteps {
@@ -83,6 +88,7 @@ impl Command for RunSteps {
     }
 }
 
+/// Argument parser for the "velocity" command
 pub struct Velocity;
 
 impl Command for Velocity {
@@ -94,6 +100,7 @@ impl Command for Velocity {
         let style = args.get_required(read_args, line)?;
         read_args += 1;
         match style {
+            // Of all the style options in the velocity command only create is available right now
             "create" => {
                 start_velocity.start_temperature = Some(args.parse_float_at(read_args, line)?);
                 read_args += 1;
@@ -131,16 +138,19 @@ impl Command for Velocity {
                 _ => return Err(PisError::InvalidArgument { string: keyword.to_string(), line })
             };
         }
+        // Currently one one velocity command is allowed in the intput file.
         ctx.starting_velocity = Some(start_velocity);
 
         Ok(())
     }
 }
 
+/// Argument parser for the "read_data" command
 pub struct ReadData;
 
 impl Command for ReadData {
     fn run(&self, args: &[&str], line:usize, ctx: &mut SimulationContext) -> Result<()> {
+        // the first argument is the path to the data file
         let path = args.get_required(0, line)?;
         let file = File::open(path)
             .map_err(|e| PisError::InputFileError { path: path.to_string(), source: e })?;
@@ -177,7 +187,8 @@ impl Command for ReadData {
             }
 
             let line_split: Vec<&str> = line.split_whitespace().collect();
-            
+
+            // Taking care of the possibility that the parser comes accross the headers in the data file
             let first_word = line_split.get_required(0, line_num)?;
             match first_word {
                 "Masses" | "Atoms" | "PairCoeffs" => {
@@ -194,6 +205,8 @@ impl Command for ReadData {
 
             if line_split.len() > 1 {
                 match line_split[1] {
+                    // reading the number of atoms in the system by reading the number in the line:
+                    // "3 atoms"
                     "atoms" => {
                         n_atoms = line_split.parse_int_at(0, line_num)?.convert_to_usize(line_num)?;
                         type_ids = DVector::zeros(n_atoms);
@@ -201,6 +214,8 @@ impl Command for ReadData {
                         velocities = Matrix3xX::zeros(n_atoms);
                         continue;
                     }
+                    // reading the number of atom types in the system by reading the number in the line:
+                    // "2 atom types"
                     "atom" => {
                         let n_types = line_split.parse_int_at(0, line_num)?.convert_to_usize(line_num)?;
                         masses.resize(n_types, 0.0);
@@ -212,6 +227,8 @@ impl Command for ReadData {
 
             if line_split.iter().len() > 2 {
                 match line_split[2] {
+                    // reading the mlo and mhi numbers (where m can be x, y and z) in the line:
+                    // "0.0 5.0 xlo xhi"
                     "xlo" => {
                         xlo = line_split.parse_float_at(0, line_num)?;
                         xhi = line_split.parse_float_at(1, line_num)?;
@@ -233,6 +250,7 @@ impl Command for ReadData {
 
             match section.as_str() {
                 "Masses" => {
+                    // reading the masses along with the atoms types
                     let type_id: usize = line_split.parse_int_at(0, line_num)?.convert_to_usize(line_num)?;
                     let mass: f64 = line_split.parse_float_at(1, line_num)?;
                     if type_id < 1 {
@@ -241,6 +259,10 @@ impl Command for ReadData {
                     masses[type_id - 1] = mass;
                 }
                 "PairCoeffs" => {
+                    // reading the pair coefficients for the lennard jones potentials. If the lines looks like this:
+                    // "1 0.238 3.405 8.5", this means that the coefficients are for the atoms of type 1 and 1.
+                    // if the lines looks like this:
+                    // "1 2 0.238 3.405 8.5", then the coefficients are for interations between atom types 1 and 2
                     let i: usize = line_split.parse_int_at(0, line_num)?.convert_to_usize(line_num)?;
                     if let Ok(epsilon) = line_split.parse_float_at(1, line_num) {
                         let sigma: f64 = line_split.parse_float_at(2, line_num)?;
@@ -261,10 +283,12 @@ impl Command for ReadData {
                         let lj_ij = LennardJones::new(epsilon, sigma, rcut, true);
                         mgr.insert((i, j), lj_ij);
                     }
-                    // let mut j: usize;
                     continue;
                 }
                 "Atoms" => {
+                    // reading atoms from the data file. The line looks like this:
+                    // "31 1 0.0 0.0 0.0"
+                    // atom_number, atom_type, x_coord, y_coord, z_coord
                     let mut id: usize = line_split.parse_int_at(0, line_num)?.convert_to_usize(line_num)?;
                     if id == 0 || id > n_atoms {
                         return Err(PisError::AtomCountMismatch { expected: n_atoms, found: id })
@@ -280,6 +304,9 @@ impl Command for ReadData {
                     positions[(2, id)] = z;
                 }
                 "Velocities" => {
+                    // reading atom velocities from the line that looks like this:
+                    // "31 0.0 0.0 0.0"
+                    // atom_number, x_coord, y_coord, z_coord
                     let mut id: usize = line_split.parse_int_at(0, line_num)?.convert_to_usize(line_num)?;
                     if id == 0 || id > n_atoms {
                         return Err(PisError::AtomCountMismatch { expected: n_atoms, found: id })
@@ -295,7 +322,8 @@ impl Command for ReadData {
                 _ => {}
             }
         }
-
+        // if atoms already exists in the simulation context
+        // TODO: the atoms needs to be added to the original atoms rather tahn replacing them
         if let Some(ctx_atoms) = &mut ctx.atoms {
             ctx_atoms.n_atoms = n_atoms;
             ctx_atoms.type_ids = type_ids;
@@ -305,6 +333,7 @@ impl Command for ReadData {
             ctx_atoms.sim_box =
                 SimulationBox::from_lammps_data(xlo, xhi, ylo, yhi, zlo, zhi, 0.0, 0.0, 0.0);
         } else {
+            // This is the actual place where the atoms read above are assigned to the simulation context
             ctx.atoms = Some(Atoms {
                 n_atoms,
                 type_ids,
@@ -318,10 +347,12 @@ impl Command for ReadData {
             });
         }
 
+        // the potential manager is being assigned here
         if !mgr.is_empty() {
             ctx.mgr = Some(Box::new(mgr));
         }
 
+        // the starting velocites are being assigned here so that they can be initialized in the contextualize part
         if let Some(velocity) = &mut ctx.starting_velocity {
             velocity.start_velocity = start_velocities;
         } else {
@@ -337,6 +368,7 @@ impl Command for ReadData {
     }
 }
 
+/// Argument parser for the "fix" command
 pub struct Fix;
 
 impl Command for Fix {
@@ -347,6 +379,7 @@ impl Command for Fix {
         read_args += 1;
         let group = String::from(args.get_required(read_args, line)?);
         read_args += 1;
+        // Style can either be "npt" or "nvt"
         let style = args.get_required(read_args, line)?;
         read_args += 1;
 
@@ -409,6 +442,8 @@ impl Command for Fix {
     }
 }
 
+
+/// Argument parser for the "pair_style" command
 pub struct PairStyle;
 
 impl Command for PairStyle {
@@ -421,6 +456,7 @@ impl Command for PairStyle {
     }
 }
 
+/// Argument parser for the "pair_coeff" command
 pub struct PairCoeff;
 
 impl Command for PairCoeff {
@@ -433,6 +469,7 @@ impl Command for PairCoeff {
     }
 }
 
+/// Argument parser for the "dump" command
 pub struct Dump;
 
 impl Command for Dump {
