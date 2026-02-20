@@ -6,6 +6,7 @@ use std::{
 };
 
 use crate::{
+    errors::{PisError, Result},
     potentials::{
         lennard_jones::{LJVOffsetManager, LennardJones},
         potential::PairPotentialManager,
@@ -76,38 +77,56 @@ impl System {
     }
 
     /// Reads the input file and collects all the arguments provided by the input file.
-    pub fn read(&mut self) -> &mut Self {
-        let file = File::open(&self.infile).expect("Failed to open {infile}");
+    pub fn read(&mut self) -> Result<&mut Self> {
+        let file = File::open(&self.infile)
+            .map_err(|e| PisError::InputFileError { 
+                path: self.infile.clone(), 
+                source: e 
+            })?;
         let reader = BufReader::new(file);
 
         self.build_command_hash();
 
         for (line_num, line) in reader.lines().enumerate() {
-            let line = line.unwrap();
+            let line_num = line_num + 1;
+            let line = line.map_err(|e| PisError::DataFileError { 
+                path: self.infile.clone(), 
+                line: line_num, 
+                source: e 
+            })?;
             let line = line.trim();
 
             if line.is_empty() || line.starts_with('#') {
                 continue;
             }
             // Considering only the part of the line that is before the commented part.
-            let uncommented = line.splitn(2, '#').next().unwrap().trim();
+            let uncommented = line.split_once("#")
+                .map(|(before, _)| before)
+                .unwrap_or(line)
+                .trim();
 
             let line_split: Vec<&str> = uncommented.split_whitespace().collect();
 
+            if line_split.len() < 2 { 
+                continue; 
+            }
             let command = line_split[0];
             let args = &line_split[1..];
             
             if let Some(handler) = self.command_hash.get(command) {
-                let _ = handler.run(args, line_num + 1, &mut self.ctx);
+                handler.run(args, line_num + 1, &mut self.ctx)?;
             } else {
-                println!("Command Unkown");
+                return Err(PisError::UnknownCommand { 
+                    command: command.to_string(), 
+                    line: line_num 
+                });
             }
         }
-        self
+        Ok(self)
     }
 
     /// Contextualises the system with respect to the arguments read in the [`System::read`].
-    /// It actually creates the molecur system to be run.
+    /// It actually creates the molecular system to be run.
     // TODO: Maybe the function can be diluted out since it only "contexulizes" start velocity and potentials.
     // This can be done in the command struct.
     pub fn contextualize(&mut self) -> &mut Self {

@@ -41,9 +41,22 @@ mod writers;
 use clap::Parser;
 
 use crate::args_parser::Args;
+use crate::errors::Result;
 use crate::system::System;
 
 fn main() {
     let args = Args::parse();
-    System::new(args.infile).read().contextualize().run();
+
+    if let Err(e) = run(args.infile) {
+        eprintln!("Error: {}", e);
+        std::process::exit(1);
+    }
+}
+
+fn run(path: String) -> Result<()> {
+    System::new(path)
+        .read()?
+        .contextualize()
+        .run();
+    Ok(())
 }
