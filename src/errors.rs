@@ -21,7 +21,7 @@ pub enum PisError {
 
     // Parsing Errors
     #[error("Invalid command {command} found line: {line}")]
-    UnkownCommand {
+    UnknownCommand {
         command: String,
         line: usize,
     },
