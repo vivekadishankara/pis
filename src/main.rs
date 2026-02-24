@@ -31,6 +31,7 @@ mod atoms;
 mod constants;
 mod ensemble;
 mod errors;
+mod extensions;
 mod math;
 mod potentials;
 mod readers;
@@ -56,7 +57,7 @@ fn main() {
 fn run(path: String) -> Result<()> {
     System::new(path)
         .read()?
-        .contextualize()
+        .contextualize()?
         .run();
     Ok(())
 }

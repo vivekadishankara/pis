@@ -4,15 +4,17 @@ use rand_distr::{Distribution, Normal};
 
 use crate::atoms::new::Atoms;
 use crate::constants::KB_KJPERMOLEKELVIN;
+use crate::errors::{PisError, Result};
 
 impl Atoms {
-    pub fn start_velocities(&mut self, temperature: f64, seed: usize) {
-        self.initialise_velocities(temperature, seed);
+    pub fn start_velocities(&mut self, temperature: f64, seed: usize) -> Result<()> {
+        self.initialise_velocities(temperature, seed)?;
         self.remove_drift();
         self.rescale_to_temperature(temperature);
+        Ok(())
     }
 
-    fn initialise_velocities(&mut self, temperature: f64, seed: usize) {
+    fn initialise_velocities(&mut self, temperature: f64, seed: usize) -> Result<()> {
         let mut rng = rand::rngs::SmallRng::seed_from_u64(seed as u64);
 
         let mut sigma: f64;
@@ -20,12 +22,13 @@ impl Atoms {
 
         for i in 0..self.n_atoms {
             sigma = (KB_KJPERMOLEKELVIN * temperature / self.mass_i(i)).sqrt();
-            normal = Normal::new(0.0, sigma).unwrap();
+            normal = Normal::new(0.0, sigma).map_err(|e| PisError::InvalidDistribution { source: e })?;
 
             self.velocities[(0, i)] = normal.sample(&mut rng);
             self.velocities[(1, i)] = normal.sample(&mut rng);
             self.velocities[(2, i)] = normal.sample(&mut rng);
         }
+        Ok(())
     }
 
     fn remove_drift(&mut self) {

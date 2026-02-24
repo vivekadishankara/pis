@@ -6,11 +6,11 @@ authors = ["Vivek Naik <vivek.adishankara@gmail.com>"]
 description = "A molecular dynamics simulator in Rust"
 
 [dependencies]
-anyhow = "1.0.99"
+# anyhow = "1.0.99"
 clap = { version = "4.5.47", features = ["derive"] }
 nalgebra = "0.34.1"
 parking_lot = "0.12.4"
-rand = "0.9.2"
-rand_distr = "0.5.1"
+rand = "0.10.0"
+rand_distr = "0.6.0"
 rayon = "1.11.0"
 thiserror = "2.0.18"

@@ -53,17 +53,22 @@ pub struct MTKBarostatArgs {
 /// Context for the Potential arguments combining the arguments for "pair_style" and "pair_coeff" command
 pub struct PotentialArgs {
     pub pair_style_args: Vec<String>,
+    pub pair_style_line: usize,
     pub pair_coeff_args: Vec<Vec<String>>,
+    pub pair_coeff_lines: Vec<usize>,
 }
 
 impl Default for PotentialArgs {
     fn default() -> Self {
         let pair_style_args = Vec::new();
         let pair_coeff_args = Vec::new();
+        let pair_coeff_lines = Vec::new();
 
         Self {
             pair_style_args,
+            pair_style_line: 0,
             pair_coeff_args,
+            pair_coeff_lines,
         }
     }
 }

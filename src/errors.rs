@@ -56,6 +56,12 @@ pub enum PisError {
     #[error("No atoms defined in input file")]
     NoAtomsDefined,
 
+    #[error("Invalid normal distribution parameters: {source}")]
+    InvalidDistribution {
+        #[source]
+        source: rand_distr::NormalError,
+    },
+
     #[error("Atom count mismatch: expected {expected}, found {found}")]
     AtomCountMismatch { expected: usize, found: usize },
 
