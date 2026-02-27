@@ -1,6 +1,5 @@
 //! The pivotal struct to initialize and run the system can be found here
 use std::{
-    collections::HashMap,
     fs::File,
     io::{BufRead, BufReader},
 };
@@ -13,9 +12,7 @@ use crate::{
         potential::PairPotentialManager,
     },
     readers::{
-        input_file::commands::{
-            Command, Dump, Fix, PairCoeff, PairStyle, ReadData, RunSteps, TimeStep, Velocity,
-        },
+        input_file::commands::Command,
         simulation_context::SimulationContext,
     },
 };
@@ -41,40 +38,17 @@ use crate::{
 pub struct System {
     /// the path to the input file which contains the arguments to initialize and run the molecular system
     infile: String,
-    command_hash: HashMap<String, Box<dyn Command>>,
     ctx: SimulationContext,
 }
 
 impl System {
     /// The constructor for the System which takes in the path to the input file
     pub fn new(infile: String) -> Self {
-        let command_hash = HashMap::new();
         let ctx = SimulationContext::default();
         Self {
             infile,
-            command_hash,
             ctx,
         }
-    }
-
-    /// This function is where we add the string corresponding to the command in the input file. 
-    /// The parsing of arguments is done in a struct which implements the [`Command`] trait. 
-    fn build_command_hash(&mut self) {
-        self.command_hash
-            .insert(String::from("timestep"), Box::new(TimeStep));
-        self.command_hash
-            .insert(String::from("run"), Box::new(RunSteps));
-        self.command_hash
-            .insert(String::from("velocity"), Box::new(Velocity));
-        self.command_hash
-            .insert(String::from("read_data"), Box::new(ReadData));
-        self.command_hash
-            .insert(String::from("pair_style"), Box::new(PairStyle));
-        self.command_hash
-            .insert(String::from("pair_coeff"), Box::new(PairCoeff));
-        self.command_hash.insert(String::from("fix"), Box::new(Fix));
-        self.command_hash
-            .insert(String::from("dump"), Box::new(Dump));
     }
 
     /// Reads the input file and collects all the arguments provided by the input file.
@@ -85,8 +59,6 @@ impl System {
                 source: e 
             })?;
         let reader = BufReader::new(file);
-
-        self.build_command_hash();
 
         for (line_num, line) in reader.lines().enumerate() {
             let line_num = line_num + 1;
@@ -114,13 +86,9 @@ impl System {
             let command = line_split[0];
             let args = &line_split[1..];
             
-            if let Some(handler) = self.command_hash.get(command) {
-                handler.run(args, line_num + 1, &mut self.ctx)?;
-            } else {
-                return Err(PisError::UnknownCommand { 
-                    command: command.to_string(), 
-                    line: line_num 
-                });
+            match Command::from_str(command) {
+                Some(cmd) => cmd.run(args, line_num, &mut self.ctx)?,
+                None => return Err(PisError::UnknownCommand { command: command.to_string(), line: line_num }),
             }
         }
         Ok(self)
