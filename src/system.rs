@@ -7,6 +7,7 @@ use std::{
 
 use crate::{
     errors::{PisError, Result},
+    extensions::{ArgsExt, Int32ToUsize},
     potentials::{
         lennard_jones::{LJVOffsetManager, LennardJones},
         potential::PairPotentialManager,
@@ -129,11 +130,10 @@ impl System {
     /// It actually creates the molecular system to be run.
     // TODO: Maybe the function can be diluted out since it only "contexulizes" start velocity and potentials.
     // This can be done in the command struct.
-    pub fn contextualize(&mut self) -> &mut Self {
+    pub fn contextualize(&mut self) -> Result<&mut Self> {
         if let Some(atoms) = &mut self.ctx.atoms {
             if atoms.n_atoms == 0 {
-                println!("Atoms has not been filled by the input file");
-                std::process::exit(1);
+                return Err(PisError::NoAtomsDefined);
             }
             if let Some(starting_velocity) = &self.ctx.starting_velocity {
                 if starting_velocity.start_velocity {
@@ -146,47 +146,53 @@ impl System {
                         Some(seed) => seed,
                         None => 0,
                     };
-                    atoms.start_velocities(start_temperature, seed);
+                    atoms.start_velocities(start_temperature, seed)?;
                 }
             }
         }
 
         if let Some(potential_args) = &self.ctx.potential_args {
             let mut read_args_style = 0;
-            let style = &potential_args.pair_style_args[read_args_style];
+            let style_args: Vec<&str> = potential_args.pair_style_args
+                .iter()
+                .map(|s| s.as_str())
+                .collect();
+            let style = style_args.get_required(read_args_style, potential_args.pair_style_line)?;
             read_args_style += 1;
-            match style.as_str() {
+            match style {
                 "lj/cut" => {
-                    let global_cutoff: f64 = potential_args.pair_style_args[read_args_style]
-                        .parse()
-                        .unwrap();
+                    let global_cutoff: f64 = style_args.parse_float_at(read_args_style, potential_args.pair_style_line)?;
                     let mut mgr = LJVOffsetManager::new();
 
-                    for pair_coeff in &potential_args.pair_coeff_args {
+                    for (pair_coeff, &coeff_line) in potential_args.pair_coeff_args.iter().zip(&potential_args.pair_coeff_lines) {
+                        let pair_coeff: Vec<&str> = pair_coeff.iter()
+                            .map(|s| s.as_str())
+                            .collect();
                         let mut read_args_coeff = 0;
-                        let i: usize = pair_coeff[read_args_coeff].parse().unwrap();
+                        let i: usize = pair_coeff.parse_int_at(read_args_coeff, coeff_line)?
+                            .convert_to_usize(coeff_line)?;
                         read_args_coeff += 1;
-                        let j: usize = pair_coeff[read_args_coeff].parse().unwrap();
+                        let j: usize = pair_coeff.parse_int_at(read_args_coeff, coeff_line)?
+                            .convert_to_usize(coeff_line)?;
                         read_args_coeff += 1;
-                        let epsilon: f64 = pair_coeff[read_args_coeff].parse().unwrap();
+                        let epsilon: f64 = pair_coeff.parse_float_at(read_args_coeff, coeff_line)?;
                         read_args_coeff += 1;
-                        let sigma: f64 = pair_coeff[read_args_coeff].parse().unwrap();
+                        let sigma: f64 = pair_coeff.parse_float_at(read_args_coeff, coeff_line)?;
                         read_args_coeff += 1;
-                        let local_rcut: f64 = match pair_coeff.get(read_args_coeff) {
-                            Some(rcut) => rcut.parse().unwrap(),
-                            None => global_cutoff,
+                        let local_rcut: f64 = match pair_coeff.parse_float_at(read_args_coeff, coeff_line) {
+                            Ok(rcut) => rcut,
+                            Err(_) => global_cutoff,
                         };
-                        println!("{}, {}, {}", epsilon, sigma, local_rcut);
                         let lj_ij = LennardJones::new(epsilon, sigma, local_rcut, true);
                         mgr.insert((i, j), lj_ij);
                     }
                     self.ctx.mgr = Some(Box::new(mgr));
                 }
-                _ => print!("Pair Style Unknown"),
+                _ => return Err(PisError::UnknownPairStyle { style: style.to_string() }),
             }
         }
 
-        self
+        Ok(self)
     }
 
     pub fn run(&mut self) {

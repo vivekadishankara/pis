@@ -10,57 +10,13 @@ use crate::{
     atoms::new::Atoms, errors::{PisError, Result}, potentials::{
         lennard_jones::{LJVOffsetManager, LennardJones},
         potential::PairPotentialManager,
+    }, extensions::{
+        ArgsExt, Int32ToUsize,
     }, readers::simulation_context::{
         MTKBarostatArgs, NHThermostatChainArgs, PotentialArgs, SimulationContext, StartVelocity,
         VelocityDistribution,
     }, simulation_box::SimulationBox
 };
-
-trait ArgsExt {
-    fn get_required(&self, index: usize, line: usize) -> Result<&str>;
-    fn parse_int_at(&self, index: usize, line: usize) -> Result<i32>;
-    fn parse_float_at(&self, index: usize, line: usize) -> Result<f64>;
-}
-
-impl ArgsExt for [&str] {
-    fn get_required(&self, index: usize, line: usize) -> Result<&str> {
-        self.get(index)
-            .copied()
-            .ok_or(PisError::MissingArgument { line })
-    }
-    
-    fn parse_int_at(&self, index: usize, line: usize) -> Result<i32> {
-        let arg = self.get_required(index, line)?;
-        arg.parse()
-            .map_err(|e| PisError::IntParseError {
-                string: arg.to_string(),
-                source: e,
-            })
-    }
-
-    fn parse_float_at(&self, index: usize, line: usize) -> Result<f64> {
-        let arg = self.get_required(index, line)?;
-        arg.parse()
-            .map_err(|e| PisError::FloatParseError { 
-                string: arg.to_string(),
-                source: e 
-            })
-    }
-}
-
-trait Int32ToUsize {
-    fn convert_to_usize(&self, line: usize) -> Result<usize>;
-}
-
-impl Int32ToUsize for i32 {
-    fn convert_to_usize(&self, line: usize) -> Result<usize> {
-        (*self).try_into()
-            .map_err(|_| PisError::NegativeValue{
-                value: (*self),
-                line: line
-            })
-    }
-}
 
 /// The trait which needs to be implemented to write a parser for the arguments of a particular command.
 pub trait Command {
@@ -447,9 +403,10 @@ impl Command for Fix {
 pub struct PairStyle;
 
 impl Command for PairStyle {
-    fn run(&self, args: &[&str], _line:usize, ctx: &mut SimulationContext) -> Result<()> {
+    fn run(&self, args: &[&str], line:usize, ctx: &mut SimulationContext) -> Result<()> {
         let args: Vec<String> = args.iter().map(|entry| entry.to_string()).collect();
         let mut potential_args = PotentialArgs::default();
+        potential_args.pair_style_line = line;
         potential_args.pair_style_args = args;
         ctx.potential_args = Some(potential_args);
         Ok(())
@@ -460,10 +417,13 @@ impl Command for PairStyle {
 pub struct PairCoeff;
 
 impl Command for PairCoeff {
-    fn run(&self, args: &[&str], _line:usize, ctx: &mut SimulationContext) -> Result<()> {
+    fn run(&self, args: &[&str], line:usize, ctx: &mut SimulationContext) -> Result<()> {
         let args: Vec<String> = args.iter().map(|entry| entry.to_string()).collect();
         if let Some(potential_args) = &mut ctx.potential_args {
             potential_args.pair_coeff_args.push(args);
+            potential_args.pair_coeff_lines.push(line);
+        } else {
+            return Err(PisError::PotentialNotInitialized)
         }
         Ok(())
     }
