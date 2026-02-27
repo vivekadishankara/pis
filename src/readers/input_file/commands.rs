@@ -407,7 +407,7 @@ fn run_fix(args: &[&str], line:usize, ctx: &mut SimulationContext) -> Result<()>
                     ctx.mtk_barostat_args = Some(mtk_barostat_args);
                 }
             }
-            _ => println!("Unknow keyword for fix command {}", keyword),
+            _ => return Err(PisError::InvalidArgument { string: keyword.to_string(), line }),
         }
     }
     Ok(())
