@@ -3,8 +3,8 @@ use na::{DVector, Matrix3xX};
 
 use crate::simulation_box::SimulationBox;
 
-/// This struct holds the atoms in the simulation. 
-/// Atom masses, positions, velocities and other defining characteristics are the member 
+/// This struct holds the atoms in the simulation.
+/// Atom masses, positions, velocities and other defining characteristics are the member
 /// variables of this struct.
 pub struct Atoms {
     pub n_atoms: usize,
