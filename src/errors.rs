@@ -21,13 +21,10 @@ pub enum PisError {
 
     // Parsing Errors
     #[error("Invalid command {command} found line: {line}")]
-    UnknownCommand {
-        command: String,
-        line: usize,
-    },
+    UnknownCommand { command: String, line: usize },
 
     #[error("Missing argument on line {line}")]
-    MissingArgument {line: usize },
+    MissingArgument { line: usize },
 
     #[error("Error parsing floating number from string {string}: {source}")]
     FloatParseError {
@@ -44,10 +41,7 @@ pub enum PisError {
     },
 
     #[error("Negative value {value} not allowed on line: {line}")]
-    NegativeValue {
-        value: i32,
-        line: usize,
-    },
+    NegativeValue { value: i32, line: usize },
 
     #[error("Invalid argument: {string} at line: {line}")]
     InvalidArgument { string: String, line: usize },
@@ -84,7 +78,6 @@ pub enum PisError {
 
     #[error("Atom index {index} out of range (total atoms: {n_atoms})")]
     InvalidAtomIndex { index: usize, n_atoms: usize },
-
     // #[error(transparent)]
     // Other(#[from] anyhow::Error),
 }

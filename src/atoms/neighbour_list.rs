@@ -4,7 +4,7 @@ use crate::atoms::new::Atoms;
 
 impl Atoms {
     /// This function divides the atoms into cells according to the number of cells in each direction.
-    /// The position of atom is first converted into unit box coordinates. Then they are assigned to a cell 
+    /// The position of atom is first converted into unit box coordinates. Then they are assigned to a cell
     /// according to the cell number computed by using the standard formula
     pub fn rcut_cells(&self, nx: usize, ny: usize, nz: usize) -> Vec<Vec<usize>> {
         let ncell_total = nx * ny * nz;

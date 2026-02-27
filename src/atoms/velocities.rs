@@ -22,7 +22,8 @@ impl Atoms {
 
         for i in 0..self.n_atoms {
             sigma = (KB_KJPERMOLEKELVIN * temperature / self.mass_i(i)).sqrt();
-            normal = Normal::new(0.0, sigma).map_err(|e| PisError::InvalidDistribution { source: e })?;
+            normal =
+                Normal::new(0.0, sigma).map_err(|e| PisError::InvalidDistribution { source: e })?;
 
             self.velocities[(0, i)] = normal.sample(&mut rng);
             self.velocities[(1, i)] = normal.sample(&mut rng);

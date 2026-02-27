@@ -11,26 +11,22 @@ use crate::{
         lennard_jones::{LJVOffsetManager, LennardJones},
         potential::PairPotentialManager,
     },
-    readers::{
-        input_file::commands::Command,
-        simulation_context::SimulationContext,
-    },
+    readers::{input_file::commands::Command, simulation_context::SimulationContext},
 };
 
-
-/// [`System`] is the basic API for running the molecular dynamics solution. 
-/// 
+/// [`System`] is the basic API for running the molecular dynamics solution.
+///
 /// It's [`System::new`] function takes in the path to the input file and initializes the system.
 /// We then need to contextualize the system according to the arguments given in the input file. This is the process where the atoms are initialized, the thermostat and barostats are set and so on,
 /// The contextualized system then needs to run which is the molecular dynamics run for the sytem created from before.
-/// 
+///
 /// # Examples
-/// 
+///
 /// A typical main then looks like this:
-/// 
+///
 /// ```
 /// use crate::system::System;
-/// 
+///
 /// fn main() {
 ///     System::new(path_to_file).read().contextualize().run();
 /// }
@@ -45,27 +41,23 @@ impl System {
     /// The constructor for the System which takes in the path to the input file
     pub fn new(infile: String) -> Self {
         let ctx = SimulationContext::default();
-        Self {
-            infile,
-            ctx,
-        }
+        Self { infile, ctx }
     }
 
     /// Reads the input file and collects all the arguments provided by the input file.
     pub fn read(&mut self) -> Result<&mut Self> {
-        let file = File::open(&self.infile)
-            .map_err(|e| PisError::InputFileError { 
-                path: self.infile.clone(), 
-                source: e 
-            })?;
+        let file = File::open(&self.infile).map_err(|e| PisError::InputFileError {
+            path: self.infile.clone(),
+            source: e,
+        })?;
         let reader = BufReader::new(file);
 
         for (line_num, line) in reader.lines().enumerate() {
             let line_num = line_num + 1;
-            let line = line.map_err(|e| PisError::DataFileError { 
-                path: self.infile.clone(), 
-                line: line_num, 
-                source: e 
+            let line = line.map_err(|e| PisError::DataFileError {
+                path: self.infile.clone(),
+                line: line_num,
+                source: e,
             })?;
             let line = line.trim();
 
@@ -73,22 +65,28 @@ impl System {
                 continue;
             }
             // Considering only the part of the line that is before the commented part.
-            let uncommented = line.split_once("#")
+            let uncommented = line
+                .split_once("#")
                 .map(|(before, _)| before)
                 .unwrap_or(line)
                 .trim();
 
             let line_split: Vec<&str> = uncommented.split_whitespace().collect();
 
-            if line_split.len() < 2 { 
-                continue; 
+            if line_split.len() < 2 {
+                continue;
             }
             let command = line_split[0];
             let args = &line_split[1..];
-            
+
             match Command::from_str(command) {
                 Some(cmd) => cmd.run(args, line_num, &mut self.ctx)?,
-                None => return Err(PisError::UnknownCommand { command: command.to_string(), line: line_num }),
+                None => {
+                    return Err(PisError::UnknownCommand {
+                        command: command.to_string(),
+                        line: line_num,
+                    })
+                }
             }
         }
         Ok(self)
@@ -121,7 +119,8 @@ impl System {
 
         if let Some(potential_args) = &self.ctx.potential_args {
             let mut read_args_style = 0;
-            let style_args: Vec<&str> = potential_args.pair_style_args
+            let style_args: Vec<&str> = potential_args
+                .pair_style_args
                 .iter()
                 .map(|s| s.as_str())
                 .collect();
@@ -129,34 +128,45 @@ impl System {
             read_args_style += 1;
             match style {
                 "lj/cut" => {
-                    let global_cutoff: f64 = style_args.parse_float_at(read_args_style, potential_args.pair_style_line)?;
+                    let global_cutoff: f64 = style_args
+                        .parse_float_at(read_args_style, potential_args.pair_style_line)?;
                     let mut mgr = LJVOffsetManager::new();
 
-                    for (pair_coeff, &coeff_line) in potential_args.pair_coeff_args.iter().zip(&potential_args.pair_coeff_lines) {
-                        let pair_coeff: Vec<&str> = pair_coeff.iter()
-                            .map(|s| s.as_str())
-                            .collect();
+                    for (pair_coeff, &coeff_line) in potential_args
+                        .pair_coeff_args
+                        .iter()
+                        .zip(&potential_args.pair_coeff_lines)
+                    {
+                        let pair_coeff: Vec<&str> = pair_coeff.iter().map(|s| s.as_str()).collect();
                         let mut read_args_coeff = 0;
-                        let i: usize = pair_coeff.parse_int_at(read_args_coeff, coeff_line)?
+                        let i: usize = pair_coeff
+                            .parse_int_at(read_args_coeff, coeff_line)?
                             .convert_to_usize(coeff_line)?;
                         read_args_coeff += 1;
-                        let j: usize = pair_coeff.parse_int_at(read_args_coeff, coeff_line)?
+                        let j: usize = pair_coeff
+                            .parse_int_at(read_args_coeff, coeff_line)?
                             .convert_to_usize(coeff_line)?;
                         read_args_coeff += 1;
-                        let epsilon: f64 = pair_coeff.parse_float_at(read_args_coeff, coeff_line)?;
+                        let epsilon: f64 =
+                            pair_coeff.parse_float_at(read_args_coeff, coeff_line)?;
                         read_args_coeff += 1;
                         let sigma: f64 = pair_coeff.parse_float_at(read_args_coeff, coeff_line)?;
                         read_args_coeff += 1;
-                        let local_rcut: f64 = match pair_coeff.parse_float_at(read_args_coeff, coeff_line) {
-                            Ok(rcut) => rcut,
-                            Err(_) => global_cutoff,
-                        };
+                        let local_rcut: f64 =
+                            match pair_coeff.parse_float_at(read_args_coeff, coeff_line) {
+                                Ok(rcut) => rcut,
+                                Err(_) => global_cutoff,
+                            };
                         let lj_ij = LennardJones::new(epsilon, sigma, local_rcut, true);
                         mgr.insert((i, j), lj_ij);
                     }
                     self.ctx.mgr = Some(Box::new(mgr));
                 }
-                _ => return Err(PisError::UnknownPairStyle { style: style.to_string() }),
+                _ => {
+                    return Err(PisError::UnknownPairStyle {
+                        style: style.to_string(),
+                    })
+                }
             }
         }
 
