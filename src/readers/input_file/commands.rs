@@ -13,6 +13,7 @@ use crate::{
     potentials::{
         lennard_jones::{LJVOffsetManager, LennardJones},
         potential::PairPotentialManager,
+        kind::PairPotentialKind,
     },
     readers::simulation_context::{
         MTKBarostatArgs, NHThermostatChainArgs, PotentialArgs, SimulationContext, StartVelocity,
@@ -273,7 +274,7 @@ fn run_read_data(args: &[&str], line: usize, ctx: &mut SimulationContext) -> Res
                         Err(_) => 2.5 * sigma,
                     };
                     let lj_ii = LennardJones::new(epsilon, sigma, rcut, true);
-                    mgr.insert((i, i), lj_ii);
+                    mgr.insert((i, i), PairPotentialKind::LennardJones(lj_ii));
                 } else {
                     let j: usize = line_split
                         .parse_int_at(1, line_num)?
@@ -285,7 +286,7 @@ fn run_read_data(args: &[&str], line: usize, ctx: &mut SimulationContext) -> Res
                         Err(_) => 2.5 * sigma,
                     };
                     let lj_ij = LennardJones::new(epsilon, sigma, rcut, true);
-                    mgr.insert((i, j), lj_ij);
+                    mgr.insert((i, j), PairPotentialKind::LennardJones(lj_ij));
                 }
                 continue;
             }

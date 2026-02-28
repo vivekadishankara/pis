@@ -10,6 +10,7 @@ use crate::{
     potentials::{
         lennard_jones::{LJVOffsetManager, LennardJones},
         potential::PairPotentialManager,
+        kind::PairPotentialKind,
     },
     readers::{input_file::commands::Command, simulation_context::SimulationContext},
 };
@@ -158,7 +159,7 @@ impl System {
                                 Err(_) => global_cutoff,
                             };
                         let lj_ij = LennardJones::new(epsilon, sigma, local_rcut, true);
-                        mgr.insert((i, j), lj_ij);
+                        mgr.insert((i, j), PairPotentialKind::LennardJones(lj_ij));
                     }
                     self.ctx.mgr = Some(Box::new(mgr));
                 }
