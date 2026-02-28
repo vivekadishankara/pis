@@ -8,6 +8,9 @@ use crate::ensemble::nvt::NHThermostatChain;
 use crate::readers::simulation_context::SimulationContext;
 use crate::writers::dump_traj::DumpTraj;
 
+/// General interface for anything that can compute forces and energies.
+/// For pair potentials specifically, also implement [`PairPotentialManager`]
+/// which provides the pair table infrastructure.
 pub trait PotentialManager: Send + Sync {
     fn compute_potential(&self, atoms: &mut Atoms) -> f64;
 
@@ -246,6 +249,8 @@ pub trait PairPotential: Send + Sync {
 type AtomPair = (usize, usize);
 pub type Table = HashMap<AtomPair, Box<dyn PairPotential>>;
 
+/// Additional interface for potentials that decompose into pairwise interactions.
+/// Implementors should also implement [`PotentialManager`].
 pub trait PairPotentialManager: Sized {
     fn with_table(table: Table) -> Self;
     fn table(&self) -> &Table;
@@ -294,4 +299,20 @@ pub trait PairPotentialManager: Sized {
 
         self.get(&type_tuple)
     }
+}
+
+macro_rules! impl_pair_potential_manager {
+    ($name:ident) => {
+        impl PairPotentialManager for $name {
+            fn with_table(table: Table) -> Self {
+                Self { table }
+            }
+            fn table(&self) -> &Table {
+                &self.table
+            }
+            fn table_mut(&mut self) -> &mut Table {
+                &mut self.table
+            }
+        }
+    };
 }
