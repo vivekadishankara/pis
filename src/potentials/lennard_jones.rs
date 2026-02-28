@@ -98,19 +98,7 @@ impl PotentialManager for LJManager {
     }
 }
 
-impl PairPotentialManager for LJManager {
-    fn with_table(table: Table) -> Self {
-        Self { table }
-    }
-
-    fn table(&self) -> &Table {
-        &self.table
-    }
-
-    fn table_mut(&mut self) -> &mut Table {
-        &mut self.table
-    }
-}
+impl_pair_potential_manager!(LJManager);
 
 pub struct LJVerletManager {
     pub table: Table,
@@ -189,19 +177,7 @@ impl PotentialManager for LJVerletManager {
     }
 }
 
-impl PairPotentialManager for LJVerletManager {
-    fn with_table(table: Table) -> Self {
-        Self { table }
-    }
-
-    fn table(&self) -> &Table {
-        &self.table
-    }
-
-    fn table_mut(&mut self) -> &mut Table {
-        &mut self.table
-    }
-}
+impl_pair_potential_manager!(LJVerletManager);
 
 pub struct LJVOffsetManager {
     pub table: Table,
@@ -274,19 +250,7 @@ impl PotentialManager for LJVOffsetManager {
     }
 }
 
-impl PairPotentialManager for LJVOffsetManager {
-    fn with_table(table: Table) -> Self {
-        Self { table }
-    }
-
-    fn table(&self) -> &Table {
-        &self.table
-    }
-
-    fn table_mut(&mut self) -> &mut Table {
-        &mut self.table
-    }
-}
+impl_pair_potential_manager!(LJVOffsetManager);
 
 pub struct LJVParallelManager {
     pub table: Table,
@@ -378,19 +342,7 @@ impl PotentialManager for LJVParallelManager {
     }
 }
 
-impl PairPotentialManager for LJVParallelManager {
-    fn with_table(table: Table) -> Self {
-        Self { table }
-    }
-
-    fn table(&self) -> &Table {
-        &self.table
-    }
-
-    fn table_mut(&mut self) -> &mut Table {
-        &mut self.table
-    }
-}
+impl_pair_potential_manager!(LJVParallelManager);
 
 pub struct LJVPBuildListManager {
     pub table: Table,
@@ -510,16 +462,4 @@ impl PotentialManager for LJVPBuildListManager {
     }
 }
 
-impl PairPotentialManager for LJVPBuildListManager {
-    fn with_table(table: Table) -> Self {
-        Self { table }
-    }
-
-    fn table(&self) -> &Table {
-        &self.table
-    }
-
-    fn table_mut(&mut self) -> &mut Table {
-        &mut self.table
-    }
-}
+impl_pair_potential_manager!(LJVPBuildListManager);
