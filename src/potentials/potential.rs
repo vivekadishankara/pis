@@ -5,6 +5,7 @@ use std::collections::HashMap;
 use crate::atoms::new::Atoms;
 use crate::ensemble::npt::MTKBarostat;
 use crate::ensemble::nvt::NHThermostatChain;
+use crate::potentials::kind::PairPotentialKind;
 use crate::readers::simulation_context::SimulationContext;
 use crate::writers::dump_traj::DumpTraj;
 
@@ -247,7 +248,7 @@ pub trait PairPotential: Send + Sync {
 }
 
 type AtomPair = (usize, usize);
-pub type Table = HashMap<AtomPair, Box<dyn PairPotential>>;
+pub type Table = HashMap<AtomPair, PairPotentialKind>;
 
 /// Additional interface for potentials that decompose into pairwise interactions.
 /// Implementors should also implement [`PotentialManager`].
@@ -264,15 +265,13 @@ pub trait PairPotentialManager: Sized {
         self.table().is_empty()
     }
 
-    fn insert<P>(&mut self, key: AtomPair, potential: P)
-    where
-        P: PairPotential + 'static,
+    fn insert(&mut self, key: AtomPair, potential: PairPotentialKind)
     {
-        self.table_mut().insert(key, Box::new(potential));
+        self.table_mut().insert(key,potential);
     }
 
-    fn get(&self, key: &AtomPair) -> Option<&dyn PairPotential> {
-        self.table().get(key).map(|b| b.as_ref())
+    fn get(&self, key: &AtomPair) -> Option<&PairPotentialKind> {
+        self.table().get(key)
     }
 
     #[allow(dead_code)]
@@ -287,7 +286,7 @@ pub trait PairPotentialManager: Sized {
         max_rcut
     }
 
-    fn get_potential_ij(&self, atoms: &Atoms, i: usize, j: usize) -> Option<&dyn PairPotential> {
+    fn get_potential_ij(&self, atoms: &Atoms, i: usize, j: usize) -> Option<&PairPotentialKind> {
         let type_i = atoms.type_ids[i];
         let type_j = atoms.type_ids[j];
 
