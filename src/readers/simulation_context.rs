@@ -1,7 +1,7 @@
 //! This module defines structs which store the information provided for the simulation.
 use na::Matrix3;
 
-use crate::{atoms::new::Atoms, potentials::potential::PotentialManager};
+use crate::{atoms::new::Atoms, potentials::{kind::PotentialManagerKind}};
 
 /// An enum for the style of velocity distribution
 pub enum VelocityDistribution {
@@ -104,7 +104,7 @@ impl Default for DumpArgs {
 pub struct SimulationContext {
     pub atoms: Option<Atoms>,
     pub timestep: f64,
-    pub mgr: Option<Box<dyn PotentialManager>>,
+    pub mgr: Option<PotentialManagerKind>,
     pub starting_velocity: Option<StartVelocity>,
     pub steps: usize,
     pub potential_args: Option<PotentialArgs>,

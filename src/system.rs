@@ -8,9 +8,7 @@ use crate::{
     errors::{PisError, Result},
     extensions::{ArgsExt, Int32ToUsize},
     potentials::{
-        lennard_jones::{LJVOffsetManager, LennardJones},
-        potential::PairPotentialManager,
-        kind::PairPotentialKind,
+        kind::{PairPotentialKind, PotentialManagerKind}, lennard_jones::{LJVOffsetManager, LennardJones}, potential::PairPotentialManager
     },
     readers::{input_file::commands::Command, simulation_context::SimulationContext},
 };
@@ -161,7 +159,7 @@ impl System {
                         let lj_ij = LennardJones::new(epsilon, sigma, local_rcut, true);
                         mgr.insert((i, j), PairPotentialKind::LennardJones(lj_ij));
                     }
-                    self.ctx.mgr = Some(Box::new(mgr));
+                    self.ctx.mgr = Some(PotentialManagerKind::LJVOffsetManager(mgr));
                 }
                 _ => {
                     return Err(PisError::UnknownPairStyle {

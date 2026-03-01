@@ -189,7 +189,6 @@ impl PotentialManager for LJVOffsetManager {
         let (nx, ny, nz) = atoms.divide_into_cells(max_rcut);
         let cells = atoms.rcut_cells(nx, ny, nz);
 
-        let mut neighbour_cells: HashSet<usize> = HashSet::with_capacity(27);
         let mut potential_energy: f64 = 0.0;
 
         for cx_i in 0..nx {
@@ -204,11 +203,6 @@ impl PotentialManager for LJVOffsetManager {
                         let cz_j = (cz_i as isize + offset.dz).rem_euclid(nz as isize) as usize;
 
                         let a_neighbour_cell = Atoms::cell_index(cx_j, cy_j, cz_j, nx, ny);
-                        if neighbour_cells.contains(&a_neighbour_cell) {
-                            continue;
-                        }
-                        neighbour_cells.insert(a_neighbour_cell);
-
                         let neighbour_cell_atoms = &cells[a_neighbour_cell];
 
                         for &i in current_cell_atoms.iter() {
@@ -242,7 +236,6 @@ impl PotentialManager for LJVOffsetManager {
                             }
                         }
                     }
-                    neighbour_cells.clear();
                 }
             }
         }
