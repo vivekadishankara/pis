@@ -11,9 +11,7 @@ use crate::{
     errors::{PisError, Result},
     extensions::{ArgsExt, Int32ToUsize},
     potentials::{
-        lennard_jones::{LJVOffsetManager, LennardJones},
-        potential::PairPotentialManager,
-        kind::PairPotentialKind,
+        kind::{PairPotentialKind, PotentialManagerKind}, lennard_jones::{LJVOffsetManager, LennardJones}, potential::PairPotentialManager
     },
     readers::simulation_context::{
         MTKBarostatArgs, NHThermostatChainArgs, PotentialArgs, SimulationContext, StartVelocity,
@@ -364,7 +362,7 @@ fn run_read_data(args: &[&str], line: usize, ctx: &mut SimulationContext) -> Res
 
     // the potential manager is being assigned here
     if !mgr.is_empty() {
-        ctx.mgr = Some(Box::new(mgr));
+        ctx.mgr = Some(PotentialManagerKind::LJVOffsetManager(mgr));
     }
 
     // the starting velocites are being assigned here so that they can be initialized in the contextualize part
