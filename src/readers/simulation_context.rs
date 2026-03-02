@@ -1,7 +1,7 @@
 //! This module defines structs which store the information provided for the simulation.
 use na::Matrix3;
 
-use crate::{atoms::new::Atoms, potentials::{kind::PotentialManagerKind}};
+use crate::{atoms::new::Atoms, potentials::kind::PotentialManagerKind};
 
 /// An enum for the style of velocity distribution
 pub enum VelocityDistribution {
@@ -126,13 +126,5 @@ impl Default for SimulationContext {
             mtk_barostat_args: None,
             dump_args: DumpArgs::default(),
         }
-    }
-}
-
-impl SimulationContext {
-    pub fn run(&mut self) {
-        let mgr = self.mgr.take().expect("Potential Manager not initialized");
-        mgr.run(self);
-        self.mgr = Some(mgr);
     }
 }

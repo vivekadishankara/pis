@@ -11,7 +11,9 @@ use crate::{
     errors::{PisError, Result},
     extensions::{ArgsExt, Int32ToUsize},
     potentials::{
-        kind::{PairPotentialKind, PotentialManagerKind}, lennard_jones::{LJVOffsetManager, LennardJones}, potential::PairPotentialManager
+        kind::{PairPotentialKind, PotentialManagerKind},
+        lennard_jones::{LJVOffsetManager, LennardJones},
+        potential::PairPotentialManager,
     },
     readers::simulation_context::{
         MTKBarostatArgs, NHThermostatChainArgs, PotentialArgs, SimulationContext, StartVelocity,

@@ -8,9 +8,11 @@ use crate::{
     errors::{PisError, Result},
     extensions::{ArgsExt, Int32ToUsize},
     potentials::{
-        kind::{PairPotentialKind, PotentialManagerKind}, lennard_jones::{LJVOffsetManager, LennardJones}, potential::PairPotentialManager
+        kind::{PairPotentialKind, PotentialManagerKind},
+        lennard_jones::{LJVOffsetManager, LennardJones},
+        potential::PairPotentialManager,
     },
-    readers::{input_file::commands::Command, simulation_context::SimulationContext},
+    readers::{input_file::commands::Command, simulation_context::SimulationContext}, simulation::Simulation,
 };
 
 /// [`System`] is the basic API for running the molecular dynamics solution.
@@ -172,7 +174,10 @@ impl System {
         Ok(self)
     }
 
-    pub fn run(&mut self) {
-        self.ctx.run();
-    }
+    pub fn run(&mut self) -> Result<()> {
+    let mgr = self.ctx.mgr.take().ok_or(PisError::PotentialNotInitialized)?;
+    Simulation::run(&mgr, &mut self.ctx)?;
+    self.ctx.mgr = Some(mgr);
+    Ok(())
+}
 }
