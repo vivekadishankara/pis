@@ -46,6 +46,21 @@ pub enum PisError {
     #[error("Invalid argument: {string} at line: {line}")]
     InvalidArgument { string: String, line: usize },
 
+    // Writing errors
+    #[error("Failed to write trajectory file '{path}': {source}")]
+    DumpWriteError {
+        path: String,
+        #[source]
+        source: std::io::Error,
+    },
+
+    #[error("Failed to create trajectory file '{path}': {source}")]
+    DumpCreateError {
+        path: String,
+        #[source]
+        source: std::io::Error,
+    },
+
     // Configuration errors
     #[error("No atoms defined in input file")]
     NoAtomsDefined,

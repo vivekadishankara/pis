@@ -1,9 +1,13 @@
-use crate::{potentials::{
-    lennard_jones::{
-        LJManager, LJVOffsetManager, LJVPBuildListManager, LJVParallelManager, LJVerletManager, LennardJones
+use crate::{
+    atoms::new::Atoms,
+    potentials::{
+        lennard_jones::{
+            LJManager, LJVOffsetManager, LJVPBuildListManager, LJVParallelManager, LJVerletManager,
+            LennardJones,
+        },
+        potential::{PairPotential, PotentialManager},
     },
-    potential::{PairPotential, PotentialManager},
-}, readers::simulation_context::SimulationContext};
+};
 
 #[allow(dead_code)]
 pub enum PotentialManagerKind {
@@ -14,14 +18,14 @@ pub enum PotentialManagerKind {
     LJVPBuildListManager(LJVPBuildListManager),
 }
 
-impl PotentialManagerKind {
-    pub fn run(&self, ctx: &mut SimulationContext) {
+impl PotentialManager for PotentialManagerKind {
+    fn compute_potential(&self, atoms: &mut Atoms) -> f64 {
         match self {
-            Self::LJManager(ljm) => ljm.run(ctx),
-            Self::LJVerletManager(ljvm) => ljvm.run(ctx),
-            Self::LJVOffsetManager(ljvom) => ljvom.run(ctx),
-            Self::LJVParallelManager(ljvpm) => ljvpm.run(ctx),
-            Self::LJVPBuildListManager(ljvpbm) => ljvpbm.run(ctx),
+            Self::LJManager(ljm) => ljm.compute_potential(atoms),
+            Self::LJVerletManager(ljvm) => ljvm.compute_potential(atoms),
+            Self::LJVOffsetManager(ljvom) => ljvom.compute_potential(atoms),
+            Self::LJVParallelManager(ljvpm) => ljvpm.compute_potential(atoms),
+            Self::LJVPBuildListManager(ljvpbm) => ljvpbm.compute_potential(atoms),
         }
     }
 }

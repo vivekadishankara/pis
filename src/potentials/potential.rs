@@ -1,4 +1,3 @@
-use core::panic;
 use na::{Matrix3xX, Vector3};
 use std::collections::HashMap;
 
@@ -6,8 +5,6 @@ use crate::atoms::new::Atoms;
 use crate::ensemble::npt::MTKBarostat;
 use crate::ensemble::nvt::NHThermostatChain;
 use crate::potentials::kind::PairPotentialKind;
-use crate::readers::simulation_context::SimulationContext;
-use crate::writers::dump_traj::DumpTraj;
 
 /// General interface for anything that can compute forces and energies.
 /// For pair potentials specifically, also implement [`PairPotentialManager`]
@@ -136,110 +133,6 @@ pub trait PotentialManager: Send + Sync {
 
         potential_energy
     }
-
-    fn run(&self, ctx: &mut SimulationContext) {
-        let mut atoms = match &mut ctx.atoms {
-            Some(atoms) => atoms,
-            None => panic!("Simulation Context does not have the atoms"),
-        };
-        let dt = ctx.timestep;
-        let time_steps = ctx.steps;
-
-        let mut dumper = DumpTraj::new(&ctx.dump_args).expect("Failed to create dump file");
-        dumper.write_step(&atoms, 0).expect("Failed to write step");
-        let first_potential = self.compute_potential(&mut atoms);
-        println!("{} {}", 0, first_potential);
-
-        let ensemble: &str;
-        if ctx.nh_chain_args.is_some() && ctx.mtk_barostat_args.is_some() {
-            ensemble = "npt";
-        } else if ctx.nh_chain_args.is_some() {
-            ensemble = "nvt";
-        } else {
-            ensemble = "nve";
-        }
-
-        let mut nose_hoover_chain = NHThermostatChain::new_from_args(&ctx.nh_chain_args);
-        let mut mtk_barostat =
-            MTKBarostat::new_from_args(&ctx.mtk_barostat_args, &ctx.nh_chain_args, atoms.n_atoms);
-
-        for i in 0..time_steps {
-            let step_potential = match ensemble {
-                "nve" => self.verlet_step_nve(&mut atoms, dt),
-                "nvt" => {
-                    let potential = self.verlet_step_nvt_nhc(
-                        &mut atoms,
-                        dt,
-                        nose_hoover_chain.as_mut().unwrap(),
-                    );
-                    nose_hoover_chain
-                        .as_mut()
-                        .unwrap()
-                        .calculate_target_temperature(i, time_steps);
-                    potential
-                }
-                "npt" => {
-                    let potential = self.verlet_step_npt_mtk(
-                        &mut atoms,
-                        dt,
-                        &mut mtk_barostat.as_mut().unwrap(),
-                        nose_hoover_chain.as_mut().unwrap(),
-                    );
-                    nose_hoover_chain
-                        .as_mut()
-                        .unwrap()
-                        .calculate_target_temperature(i, time_steps);
-                    potential
-                }
-                _ => panic!("Ensemble unknown"),
-            };
-            if ((i + 1) % ctx.dump_args.dump_step) == 0 {
-                dumper
-                    .write_step(&atoms, i + 1)
-                    .expect("Failed to write step");
-            }
-
-            let kinetic_energy = atoms.kinetic_energy();
-            let basic_hamiltonian = step_potential + kinetic_energy;
-            let hamiltonian = match ensemble {
-                "nve" => basic_hamiltonian,
-                "nvt" => {
-                    basic_hamiltonian
-                        + nose_hoover_chain.as_ref().unwrap().kinetic_energy()
-                        + nose_hoover_chain
-                            .as_ref()
-                            .unwrap()
-                            .potential_energy(atoms.n_atoms)
-                }
-                "npt" => {
-                    basic_hamiltonian
-                        + nose_hoover_chain.as_ref().unwrap().kinetic_energy()
-                        + nose_hoover_chain
-                            .as_ref()
-                            .unwrap()
-                            .potential_energy(atoms.n_atoms)
-                        + mtk_barostat.as_ref().unwrap().kinetic_energy()
-                        + mtk_barostat
-                            .as_ref()
-                            .unwrap()
-                            .potential_energy(&atoms.sim_box.h)
-                }
-                _ => panic!("Ensemble unknown"),
-            };
-            let temperature = atoms.temerature(kinetic_energy);
-            let pressure = atoms.pressure(kinetic_energy);
-
-            println!(
-                "{} {:.3} {:.3} {:.3} {:.3} {:.3}",
-                i + 1,
-                step_potential,
-                kinetic_energy,
-                hamiltonian,
-                temperature,
-                pressure
-            );
-        }
-    }
 }
 
 pub trait PairPotential: Send + Sync {
@@ -265,9 +158,8 @@ pub trait PairPotentialManager: Sized {
         self.table().is_empty()
     }
 
-    fn insert(&mut self, key: AtomPair, potential: PairPotentialKind)
-    {
-        self.table_mut().insert(key,potential);
+    fn insert(&mut self, key: AtomPair, potential: PairPotentialKind) {
+        self.table_mut().insert(key, potential);
     }
 
     fn get(&self, key: &AtomPair) -> Option<&PairPotentialKind> {

@@ -1,59 +1,66 @@
 //! Structs for dumping of trajectory output to be found here
 use std::{
     fs::File,
-    io::{BufWriter, Result, Write},
+    io::{BufWriter, Write},
 };
 
 use crate::{
-    atoms::new::Atoms, readers::simulation_context::DumpArgs, simulation_box::SimulationBox,
+    atoms::new::Atoms, errors::{PisError, Result}, readers::simulation_context::DumpArgs, simulation_box::SimulationBox,
 };
 
 /// This struct helps write the trajectory of the simulation as a .traj text file
 pub struct DumpTraj {
     out: BufWriter<File>,
+    path: String,
 }
 
 impl DumpTraj {
     pub fn new(dump_args: &DumpArgs) -> Result<Self> {
-        let file = File::create(dump_args.file_name.as_str())?;
+        let file = File::create(dump_args.file_name.as_str())
+            .map_err(|e| PisError::DumpCreateError { path: dump_args.file_name.clone(), source: e })?;
         Ok(DumpTraj {
             out: BufWriter::new(file),
+            path: dump_args.file_name.clone(),
         })
     }
 
+    fn writeln(&mut self, args: std::fmt::Arguments) -> Result<()> {
+        writeln!(self.out, "{}", args)
+            .map_err(|e| PisError::DumpWriteError { path: self.path.clone(), source: e })
+    }
+
     pub fn write_timestep(&mut self, step: usize) -> Result<()> {
-        writeln!(self.out, "ITEM: TIMESTEP")?;
-        writeln!(self.out, "{}", step)?;
+        self.writeln(format_args!("ITEM: TIMESTEP"))?;
+        self.writeln(format_args!("{}", step))?;
         Ok(())
     }
 
     pub fn write_natoms(&mut self, n_atoms: usize) -> Result<()> {
-        writeln!(self.out, "ITEM: NUMBER OF ATOMS")?;
-        writeln!(self.out, "{}", n_atoms)?;
+        self.writeln(format_args!("ITEM: NUMBER OF ATOMS"))?;
+        self.writeln(format_args!("{}", n_atoms))?;
         Ok(())
     }
 
     pub fn write_bounds(&mut self, sim_box: &SimulationBox) -> Result<()> {
-        writeln!(self.out, "ITEM: BOX BOUNDS pp pp pp")?;
-        writeln!(self.out, "{} {}", 0.0, sim_box.h[(0, 0)])?;
-        writeln!(self.out, "{} {}", 0.0, sim_box.h[(1, 1)])?;
-        writeln!(self.out, "{} {}", 0.0, sim_box.h[(2, 2)])?;
+        self.writeln(format_args!("ITEM: BOX BOUNDS pp pp pp"))?;
+        self.writeln(format_args!("{} {}", 0.0, sim_box.h[(0, 0)]))?;
+        self.writeln(format_args!("{} {}", 0.0, sim_box.h[(1, 1)]))?;
+        self.writeln(format_args!("{} {}", 0.0, sim_box.h[(2, 2)]))?;
         Ok(())
     }
 
     pub fn write_atoms_info(&mut self, atoms: &Atoms) -> Result<()> {
-        writeln!(self.out, "ITEM: ATOMS id type x y z")?;
+        self.writeln(format_args!("ITEM: ATOMS id type x y z"))?;
         for i in 0..atoms.n_atoms {
             let position = atoms.positions.column(i);
-            writeln!(
-                self.out,
+            self.writeln(format_args!(
                 "{} {} {} {} {}",
                 i + 1,
                 atoms.type_ids[i],
                 position[0],
                 position[1],
                 position[2]
-            )?;
+            ))?;
         }
         Ok(())
     }

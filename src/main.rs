@@ -35,6 +35,7 @@ mod extensions;
 mod math;
 mod potentials;
 mod readers;
+mod simulation;
 mod simulation_box;
 mod system;
 mod writers;
@@ -55,6 +56,6 @@ fn main() {
 }
 
 fn run(path: String) -> Result<()> {
-    System::new(path).read()?.contextualize()?.run();
+    System::new(path).read()?.contextualize()?.run()?;
     Ok(())
 }
