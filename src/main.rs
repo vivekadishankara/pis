@@ -38,6 +38,7 @@ mod readers;
 mod simulation;
 mod simulation_box;
 mod system;
+mod tests;
 mod writers;
 
 use clap::Parser;
