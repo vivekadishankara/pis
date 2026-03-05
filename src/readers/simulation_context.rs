@@ -4,6 +4,7 @@ use na::Matrix3;
 use crate::{atoms::new::Atoms, potentials::kind::PotentialManagerKind};
 
 /// An enum for the style of velocity distribution
+#[derive(PartialEq, Debug)]
 pub enum VelocityDistribution {
     Uniform,
     Gaussian,

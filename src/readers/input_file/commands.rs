@@ -116,6 +116,7 @@ fn run_velocity(args: &[&str], line: usize, ctx: &mut SimulationContext) -> Resu
         match keyword {
             "dist" => {
                 let keyword_arg = args.get_required(read_args, line)?;
+                read_args += 1;
                 match keyword_arg {
                     "uniform" => start_velocity.dist = Some(VelocityDistribution::Uniform),
                     "gaussian" => start_velocity.dist = Some(VelocityDistribution::Gaussian),
