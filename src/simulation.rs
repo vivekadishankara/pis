@@ -14,7 +14,10 @@ impl Simulation {
         let steps = ctx.steps;
         let dump_step = ctx.dump_args.dump_step;
 
-        let mut nose_hoover_chain = NHThermostatChain::new_from_args(&ctx.nh_chain_args);
+        let mut nose_hoover_chain = NHThermostatChain::new_from_args(
+            &ctx.nh_chain_args,
+            ctx.atoms.as_ref().ok_or(PisError::NoAtomsDefined)?.n_atoms,
+        );
         let mut mtk_barostat = MTKBarostat::new_from_args(
             &ctx.mtk_barostat_args,
             &ctx.nh_chain_args,
@@ -51,8 +54,8 @@ impl Simulation {
         match ensemble {
             Ensemble::NVE => mgr.verlet_step_nve(atoms, dt),
             Ensemble::NVT => {
-                let potential = mgr.verlet_step_nvt_nhc(atoms, dt, nhc.as_mut().unwrap());
                 nhc.as_mut().unwrap().calculate_target_temperature(i, steps);
+                let potential = mgr.verlet_step_nvt_nhc(atoms, dt, nhc.as_mut().unwrap());
                 potential
             }
             Ensemble::NPT => {

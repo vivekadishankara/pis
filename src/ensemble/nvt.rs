@@ -26,6 +26,7 @@ impl NHThermostatChain {
         target_temperature: f64,
         tau: f64,
         chain_size: usize,
+        n_atoms: usize,
     ) -> Self {
         // initialise thermostat velocities, positions forces and masses to 0.0
         let xi = vec![0.0; chain_size];
@@ -34,7 +35,8 @@ impl NHThermostatChain {
         let mut q = vec![0.0; chain_size];
 
         // mass of the first thermostat
-        let q_value = KB_KJPERMOLEKELVIN * target_temperature * tau.powi(2);
+        let q_value =
+            (3 * n_atoms) as f64 * KB_KJPERMOLEKELVIN * target_temperature * tau.powi(2);
 
         // damp the higher thermostats by a factor of 10
         for i in 0..chain_size {
@@ -100,7 +102,10 @@ impl NHThermostatChain {
         thermostat_pe
     }
 
-    pub fn new_from_args(nh_chain_args: &Option<NHThermostatChainArgs>) -> Option<Self> {
+    pub fn new_from_args(
+        nh_chain_args: &Option<NHThermostatChainArgs>,
+        n_atoms: usize,
+    ) -> Option<Self> {
         match nh_chain_args {
             Some(args) => Some(Self::new(
                 args.name.to_string(),
@@ -110,6 +115,7 @@ impl NHThermostatChain {
                 args.start_temperature,
                 args.tau,
                 3,
+                n_atoms,
             )),
             None => None,
         }
