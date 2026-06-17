@@ -71,11 +71,15 @@ impl NHThermostatChain {
     // propagation of the thermostats to half a timestep
     pub fn propagate_half_step(&mut self, timestep: f64) {
         let j = self.chain_size - 1;
-        self.xi[j] = 0.5 * timestep * self.g[j] / self.q[j];
+        self.xi[j] += 0.5 * timestep * self.g[j] / self.q[j];
 
         for l in (0..j).rev() {
-            self.xi[l] = (0.5 * timestep * self.g[l] / self.q[l])
-                * (-0.25 * timestep * self.xi[l + 1]).exp();
+            let coupling = (-0.25 * timestep * self.xi[l + 1]).exp();
+            self.xi[l] = (self.xi[l] + 0.5 * timestep * self.g[l] / self.q[l]) * coupling;
+        }
+
+        for i in 0..self.chain_size {
+            self.eta[i] += 0.5 * timestep * self.xi[i];
         }
     }
 
