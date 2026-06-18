@@ -39,7 +39,7 @@ impl Atoms {
     }
 
     pub fn degress_of_freedom(&self) -> usize {
-        3 * self.n_atoms
+        (3 * self.n_atoms - 3).max(1)
     }
 
     pub fn kinetic_tensor(&self) -> Matrix3<f64> {
