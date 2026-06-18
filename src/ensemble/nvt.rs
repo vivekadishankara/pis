@@ -35,8 +35,8 @@ impl NHThermostatChain {
         let mut q = vec![0.0; chain_size];
 
         // mass of the first thermostat
-        let q_value =
-            (3 * n_atoms) as f64 * KB_KJPERMOLEKELVIN * target_temperature * tau.powi(2);
+        let n_dof = (3 * n_atoms - 3).max(1);
+        let q_value = n_dof as f64 * KB_KJPERMOLEKELVIN * target_temperature * tau.powi(2);
 
         // damp the higher thermostats by a factor of 10
         for i in 0..chain_size {
@@ -60,28 +60,41 @@ impl NHThermostatChain {
     // Compute generalized thermostat forces
     pub fn compute_forces(&mut self, kinetic_energy: f64, n_atoms: usize) {
         // G1​= 2K − Ndof ​kB ​T
-        self.g[0] = 2.0 * kinetic_energy
-            - ((n_atoms * 3) as f64) * KB_KJPERMOLEKELVIN * self.target_temperature;
+        let n_dof = (3 * n_atoms - 3).max(1) as f64;
+        self.g[0] = (2.0 * kinetic_energy - n_dof * KB_KJPERMOLEKELVIN * self.target_temperature) / self.q[0];
 
         for j in 1..self.chain_size {
             // Gj ​= Q(j−1) ​ξ(j−1)^2​ − kB​ T for j≥2
-            self.g[j] = self.q[j - 1] * self.xi[j - 1].powi(2)
-                - KB_KJPERMOLEKELVIN * self.target_temperature;
+            self.g[j] = (self.q[j - 1] * self.xi[j - 1].powi(2) - KB_KJPERMOLEKELVIN * self.target_temperature) / self.q[j];
         }
     }
 
-    // propagation of the thermostats to half a timestep
-    pub fn propagate_half_step(&mut self, timestep: f64) {
+    // Propagate xi (thermostat velocities) by dt, backwards through the chain.
+    // Part of the symmetric Trotter factorization: used with dt = dt/4 per sub-step.
+    pub fn propagate_xi_backward(&mut self, dt: f64) {
         let j = self.chain_size - 1;
-        self.xi[j] += 0.5 * timestep * self.g[j] / self.q[j];
+        self.xi[j] += dt * self.g[j];
 
         for l in (0..j).rev() {
-            let coupling = (-0.25 * timestep * self.xi[l + 1]).exp();
-            self.xi[l] = (self.xi[l] + 0.5 * timestep * self.g[l] / self.q[l]) * coupling;
+            let coupling = (-0.5 * dt * self.xi[l + 1]).exp();
+            self.xi[l] = (self.xi[l] * coupling + dt * self.g[l]) * coupling;
         }
+    }
 
+    pub fn propagate_xi_forward(&mut self, dt: f64) {
+        let j = self.chain_size - 1;
+        for l in 0..j {
+            let coupling = (-0.5 * dt * self.xi[l + 1]).exp();
+            self.xi[l] = (self.xi[l] * coupling + dt * self.g[l]) * coupling;
+        }
+        
+        self.xi[j] += dt * self.g[j];
+    }
+
+    // Propagate eta (thermostat coordinates) by dt, forwards through the chain.
+    pub fn propagate_eta(&mut self, dt: f64) {
         for i in 0..self.chain_size {
-            self.eta[i] += 0.5 * timestep * self.xi[i];
+            self.eta[i] += dt * self.xi[i];
         }
     }
 
@@ -94,8 +107,8 @@ impl NHThermostatChain {
     }
 
     pub fn potential_energy(&self, n_atoms: usize) -> f64 {
-        let mut thermostat_pe =
-            (n_atoms * 3) as f64 * KB_KJPERMOLEKELVIN * self.target_temperature * self.eta[0];
+        let n_dof = (3 * n_atoms - 3).max(1) as f64;
+        let mut thermostat_pe = n_dof * KB_KJPERMOLEKELVIN * self.target_temperature * self.eta[0];
         for i in 1..self.chain_size {
             thermostat_pe += KB_KJPERMOLEKELVIN * self.target_temperature * self.eta[i];
         }

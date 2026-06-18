@@ -1,0 +1,10 @@
+# Initialization
+timestep 0.25
+
+read_data example/argon4000.txt
+
+velocity all create 5.0 12345
+
+dump dp1 all atom 10 dump.lammpstrj
+
+run 1000

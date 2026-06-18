@@ -38,73 +38,35 @@ pub trait PotentialManager: Send + Sync {
         dt: f64,
         noose_hoover_chain: &mut NHThermostatChain,
     ) -> f64 {
+        // --- First NHC half-step (dt/2) ---
+        // Symmetric Trotter:  xi(dt/4) → v(dt/2) → eta(dt/2) → xi(dt/4)
         let mut kinetic_energy = atoms.kinetic_energy();
-
         noose_hoover_chain.compute_forces(kinetic_energy, atoms.n_atoms);
-        noose_hoover_chain.propagate_half_step(dt);
+
+        noose_hoover_chain.propagate_xi_backward(0.25 * dt);
         let scale = (-0.5 * dt * noose_hoover_chain.xi[0]).exp();
         atoms.velocities = &atoms.velocities * scale;
+        noose_hoover_chain.propagate_eta(0.5 * dt);
 
+        kinetic_energy *= scale.powi(2);
+        noose_hoover_chain.compute_forces(kinetic_energy, atoms.n_atoms);
+        noose_hoover_chain.propagate_xi_forward(0.25 * dt);
+
+        // --- NVE step (full dt) ---
         let potential_energy = self.verlet_step_nve(atoms, dt);
 
-        atoms.velocities = &atoms.velocities * scale;
-
-        kinetic_energy = atoms.kinetic_energy();
-
-        noose_hoover_chain.compute_forces(kinetic_energy, atoms.n_atoms);
-        noose_hoover_chain.propagate_half_step(dt);
-
-        potential_energy
-    }
-
-    #[allow(dead_code)]
-    fn verlet_step_npt_mtk1(
-        &self,
-        atoms: &mut Atoms,
-        dt: f64,
-        mtk_barostat: &mut MTKBarostat,
-        noose_hoover_chain: &mut NHThermostatChain,
-    ) -> f64 {
+        // --- Second NHC half-step (dt/2) ---
         let mut kinetic_energy = atoms.kinetic_energy();
-
         noose_hoover_chain.compute_forces(kinetic_energy, atoms.n_atoms);
-        noose_hoover_chain.propagate_half_step(dt);
-        let scale_t = (-0.5 * dt * noose_hoover_chain.xi[0]).exp();
-        atoms.velocities = &atoms.velocities * scale_t;
+        noose_hoover_chain.propagate_xi_backward(0.25 * dt);
 
-        mtk_barostat.momentum += mtk_barostat.delta_momentum(atoms, dt);
+        let scale = (-0.5 * dt * noose_hoover_chain.xi[0]).exp();
+        atoms.velocities = &atoms.velocities * scale;
+        noose_hoover_chain.propagate_eta(0.5 * dt);
 
-        let scale = mtk_barostat.scale(dt, true);
-        atoms.velocities = &scale * &atoms.velocities;
-
-        let a_t = atoms.current_acceleration();
-
-        atoms.velocities += a_t * 0.5 * dt;
-
-        atoms.positions += &atoms.velocities * dt;
-
-        for r_i in atoms.positions.column_iter_mut() {
-            atoms.sim_box.apply_boundary_conditions_pos(r_i);
-        }
-
-        let scale_h = mtk_barostat.scale(dt, false);
-        atoms.scale_box(&scale_h);
-
-        atoms.forces = Matrix3xX::zeros(atoms.n_atoms);
-
-        let potential_energy = self.compute_potential(atoms);
-
-        let a_tdt = atoms.current_acceleration();
-
-        atoms.velocities += a_tdt * 0.5 * dt;
-
-        atoms.velocities = &scale * &atoms.velocities;
-        mtk_barostat.momentum += mtk_barostat.delta_momentum(atoms, dt);
-
-        atoms.velocities = &atoms.velocities * scale_t;
-        kinetic_energy = atoms.kinetic_energy();
+        kinetic_energy *= scale.powi(2);
         noose_hoover_chain.compute_forces(kinetic_energy, atoms.n_atoms);
-        noose_hoover_chain.propagate_half_step(dt);
+        noose_hoover_chain.propagate_xi_forward(0.25 * dt);
 
         potential_energy
     }
