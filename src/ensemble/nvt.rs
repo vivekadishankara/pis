@@ -144,4 +144,24 @@ impl NHThermostatChain {
             + ((self.end_temperature - self.start_temperature) / (total_timesteps) as f64)
                 * current_timestep as f64;
     }
+
+    pub fn half_step(
+        &mut self,
+        atoms: &mut crate::atoms::new::Atoms,
+        dt: f64
+    ) {
+        // --- First NHC half-step (dt/2) ---
+        // Symmetric Trotter:  xi(dt/4) → v(dt/2) → eta(dt/2) → xi(dt/4)
+        let mut kinetic_energy = atoms.kinetic_energy();
+        self.compute_forces(kinetic_energy, atoms.n_atoms);
+
+        self.propagate_xi_backward(0.25 * dt);
+        let scale = (-0.5 * dt * self.xi[0]).exp();
+        atoms.velocities = &atoms.velocities * scale;
+        self.propagate_eta(0.5 * dt);
+
+        kinetic_energy *= scale.powi(2);
+        self.compute_forces(kinetic_energy, atoms.n_atoms);
+        self.propagate_xi_forward(0.25 * dt);
+    }
 }

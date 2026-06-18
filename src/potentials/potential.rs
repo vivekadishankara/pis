@@ -40,33 +40,13 @@ pub trait PotentialManager: Send + Sync {
     ) -> f64 {
         // --- First NHC half-step (dt/2) ---
         // Symmetric Trotter:  xi(dt/4) → v(dt/2) → eta(dt/2) → xi(dt/4)
-        let mut kinetic_energy = atoms.kinetic_energy();
-        noose_hoover_chain.compute_forces(kinetic_energy, atoms.n_atoms);
-
-        noose_hoover_chain.propagate_xi_backward(0.25 * dt);
-        let scale = (-0.5 * dt * noose_hoover_chain.xi[0]).exp();
-        atoms.velocities = &atoms.velocities * scale;
-        noose_hoover_chain.propagate_eta(0.5 * dt);
-
-        kinetic_energy *= scale.powi(2);
-        noose_hoover_chain.compute_forces(kinetic_energy, atoms.n_atoms);
-        noose_hoover_chain.propagate_xi_forward(0.25 * dt);
+        noose_hoover_chain.half_step(atoms, dt);
 
         // --- NVE step (full dt) ---
         let potential_energy = self.verlet_step_nve(atoms, dt);
 
         // --- Second NHC half-step (dt/2) ---
-        let mut kinetic_energy = atoms.kinetic_energy();
-        noose_hoover_chain.compute_forces(kinetic_energy, atoms.n_atoms);
-        noose_hoover_chain.propagate_xi_backward(0.25 * dt);
-
-        let scale = (-0.5 * dt * noose_hoover_chain.xi[0]).exp();
-        atoms.velocities = &atoms.velocities * scale;
-        noose_hoover_chain.propagate_eta(0.5 * dt);
-
-        kinetic_energy *= scale.powi(2);
-        noose_hoover_chain.compute_forces(kinetic_energy, atoms.n_atoms);
-        noose_hoover_chain.propagate_xi_forward(0.25 * dt);
+        noose_hoover_chain.half_step(atoms, dt);
 
         potential_energy
     }
