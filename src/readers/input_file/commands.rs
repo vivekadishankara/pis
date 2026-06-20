@@ -360,6 +360,7 @@ fn run_read_data(args: &[&str], line: usize, ctx: &mut SimulationContext) -> Res
             velocities,
             forces: Matrix3xX::zeros(n_atoms),
             sim_box: SimulationBox::from_lammps_data(xlo, xhi, ylo, yhi, zlo, zhi, 0.0, 0.0, 0.0),
+            current_virial: Matrix3::zeros(),
         });
     }
 

@@ -1,4 +1,4 @@
-use na::{Matrix3xX, Vector3};
+use na::{Matrix3, Matrix3xX, Vector3};
 use std::collections::HashMap;
 
 use crate::atoms::new::Atoms;
@@ -21,6 +21,7 @@ pub trait PotentialManager: Send + Sync {
             atoms.sim_box.apply_boundary_conditions_pos(r_i);
         }
 
+        atoms.current_virial = Matrix3::zeros();
         atoms.forces = Matrix3xX::zeros(atoms.n_atoms);
 
         let potential_energy = self.compute_potential(atoms);
@@ -83,13 +84,14 @@ pub trait PotentialManager: Send + Sync {
         for r_i in atoms.positions.column_iter_mut() {
             atoms.sim_box.apply_boundary_conditions_pos(r_i);
         }
-        
+
         // Advance the box matrix and positions by the remaining half-step factor
         let scale_h = mtk_barostat.scale_h(dt);
         atoms.scale_box(&scale_h);
 
         // 6. Force Evaluation at new positions
         atoms.forces = Matrix3xX::zeros(atoms.n_atoms);
+        atoms.current_virial = Matrix3::zeros();
         let potential_energy = self.compute_potential(atoms);
         let a_tdt = atoms.current_acceleration();
 
@@ -112,7 +114,7 @@ pub trait PotentialManager: Send + Sync {
 }
 
 pub trait PairPotential: Send + Sync {
-    fn compute_potential(&self, rij: &Vector3<f64>) -> (f64, Vector3<f64>);
+    fn compute_potential(&self, rij: &Vector3<f64>) -> (f64, Vector3<f64>, Matrix3<f64>);
     fn get_rcut(&self) -> f64;
 }
 

@@ -53,7 +53,8 @@ impl Atoms {
     }
 
     pub fn virial_tensor(&self) -> Matrix3<f64> {
-        &self.positions * self.forces.transpose()
+        // &self.positions * self.forces.transpose()
+        self.current_virial.clone()
     }
 
     pub fn pressure_tensor(&self) -> Matrix3<f64> {

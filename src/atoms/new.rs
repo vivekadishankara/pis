@@ -1,5 +1,5 @@
 //! This module defines the struct Atoms
-use na::{DVector, Matrix3xX};
+use na::{DVector, Matrix3xX, Matrix3};
 
 use crate::simulation_box::SimulationBox;
 
@@ -14,4 +14,5 @@ pub struct Atoms {
     pub velocities: Matrix3xX<f64>,
     pub forces: Matrix3xX<f64>,
     pub sim_box: SimulationBox,
+    pub current_virial: Matrix3<f64>,
 }
