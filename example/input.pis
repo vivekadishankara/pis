@@ -22,9 +22,9 @@ read_data example/argon4000.txt # ✅
 velocity all create 5.0 12345 # ✅
 
 ##fix mynvt all nvt temp 5.0 5.0 50 # ✅
-fix mynpt all npt temp 5.0 5.0 100 iso 0.01 0.01 1000 # ✅
+fix mynpt all npt temp 5.0 5.0 50 iso 0.01 0.01 500 # ✅
 
 ## right now all and atom are mandatory
 dump dp1 all atom 10 dump.lammpstrj # ✅
 
-run 1000  # ✅
+run 3000  # ✅

@@ -21,3 +21,7 @@ target
 #.idea/
 
 dump.lammpstrj
+venv
+*.txt
+*.png
+.VSCodeCounter

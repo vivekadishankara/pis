@@ -26,7 +26,7 @@ impl NHThermostatChain {
         target_temperature: f64,
         tau: f64,
         chain_size: usize,
-        n_atoms: usize,
+        n_dof: usize,
     ) -> Self {
         // initialise thermostat velocities, positions forces and masses to 0.0
         let xi = vec![0.0; chain_size];
@@ -35,7 +35,7 @@ impl NHThermostatChain {
         let mut q = vec![0.0; chain_size];
 
         // mass of the first thermostat
-        let n_dof = (3 * n_atoms - 3).max(1);
+        let n_dof = n_dof.max(1);
         let q_value = n_dof as f64 * KB_KJPERMOLEKELVIN * target_temperature * tau.powi(2);
 
         // damp the higher thermostats by a factor of 10
@@ -106,8 +106,8 @@ impl NHThermostatChain {
         thermostat_ke
     }
 
-    pub fn potential_energy(&self, n_atoms: usize) -> f64 {
-        let n_dof = (3 * n_atoms - 3).max(1) as f64;
+    pub fn potential_energy(&self, n_dof: usize) -> f64 {
+        let n_dof = n_dof.max(1) as f64;
         let mut thermostat_pe = n_dof * KB_KJPERMOLEKELVIN * self.target_temperature * self.eta[0];
         for i in 1..self.chain_size {
             thermostat_pe += KB_KJPERMOLEKELVIN * self.target_temperature * self.eta[i];
@@ -117,19 +117,22 @@ impl NHThermostatChain {
 
     pub fn new_from_args(
         nh_chain_args: &Option<NHThermostatChainArgs>,
-        n_atoms: usize,
+        n_dof: usize,
     ) -> Option<Self> {
         match nh_chain_args {
-            Some(args) => Some(Self::new(
-                args.name.to_string(),
-                args.group.to_string(),
-                args.start_temperature,
-                args.end_temperature,
-                args.start_temperature,
-                args.tau,
-                3,
-                n_atoms,
-            )),
+            Some(args) => {
+                let n_dof = n_dof.max(1);
+                Some(Self::new(
+                    args.name.to_string(),
+                    args.group.to_string(),
+                    args.start_temperature,
+                    args.end_temperature,
+                    args.start_temperature,
+                    args.tau,
+                    3,
+                    n_dof,
+                ))
+            }
             None => None,
         }
     }

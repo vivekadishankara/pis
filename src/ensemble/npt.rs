@@ -19,6 +19,8 @@ pub struct MTKBarostat {
     pub velocity: Matrix3<f64>,
     // barostat mass
     pub w: f64,
+    // reference volume at t=0 (for PV work term in the conserved quantity)
+    pub vol0: f64,
     thermostat_chain: NHThermostatChain,
 }
 
@@ -30,6 +32,7 @@ impl MTKBarostat {
         tau: f64,
         n_atoms: usize,
         thermostat_chain: NHThermostatChain,
+        initial_volume: f64,
     ) -> Self {
         let velocity = Matrix3::zeros();
         let w = ((n_atoms + 1) as f64) * KB_KJPERMOLEKELVIN * thermostat_chain.target_temperature * tau.powi(2);
@@ -40,6 +43,7 @@ impl MTKBarostat {
             target_pressure,
             velocity,
             w,
+            vol0: initial_volume,
             thermostat_chain
         }
     }
@@ -71,13 +75,24 @@ impl MTKBarostat {
     }
 
     pub fn potential_energy(&self, h: &Matrix3<f64>) -> f64 {
-        (self.target_pressure.transpose() * h).trace()
+        let volume = h.determinant().abs();
+        let p_hydro = self.target_pressure.trace() / 3.0;
+        p_hydro * (volume - self.vol0)
+    }
+
+    pub fn chain_kinetic_energy(&self) -> f64 {
+        self.thermostat_chain.kinetic_energy()
+    }
+
+    pub fn chain_potential_energy(&self, n_dof: usize) -> f64 {
+        self.thermostat_chain.potential_energy(n_dof)
     }
 
     pub fn new_from_args(
         mtk_barostat_args: &Option<MTKBarostatArgs>,
         nh_chain_args: &Option<NHThermostatChainArgs>,
         n_atoms: usize,
+        initial_volume: f64,
     ) -> Option<Self> {
         
         let target_temperature = match nh_chain_args {
@@ -91,7 +106,7 @@ impl MTKBarostat {
                 args.start_pressure.clone(),
                 args.tau,
                 n_atoms,
-                NHThermostatChain::new_from_args(nh_chain_args, n_atoms).unwrap_or_else(|| {
+                NHThermostatChain::new_from_args(nh_chain_args, 3).unwrap_or_else(|| {
                     NHThermostatChain::new(
                         "barostat_thermostat".to_string(),
                         "all".to_string(),
@@ -100,9 +115,10 @@ impl MTKBarostat {
                         target_temperature,
                         args.tau / 10.0,
                         3,
-                        n_atoms,
+                        3, // barostat n_dof: 3 for diagonal barostat
                     )
                 }),
+                initial_volume,
             )),
             None => None,
         }
@@ -111,7 +127,7 @@ impl MTKBarostat {
     pub fn update_chain(&mut self, dt: f64) {
         // --- First NHC half-step (dt/2) ---
         // Symmetric Trotter:  xi(dt/4) → v(dt/2) → eta(dt/2) → xi(dt/4)
-        let n_dof = 6; // 6 because the barostat has 6 degrees of freedom (3 for scaling and 3 for shear)
+        let n_dof = 3; // diagonal barostat: 3 independent components (h_xx, h_yy, h_zz); use 6 for full triclinic
         let kinetic_energy = self.kinetic_energy();
         self.thermostat_chain.compute_forces(kinetic_energy, n_dof);
 
