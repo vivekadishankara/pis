@@ -1,7 +1,7 @@
 #![allow(dead_code)]
 use std::{collections::HashSet, ops::AddAssign, sync::Arc};
 
-use na::{DVector, Matrix3xX, Vector3};
+use na::{DVector, Matrix3, Matrix3xX, Vector3};
 use parking_lot::RwLock;
 use rayon::iter::{IntoParallelIterator, IntoParallelRefIterator, ParallelIterator};
 
@@ -30,7 +30,7 @@ impl LennardJones {
 }
 
 impl PairPotential for LennardJones {
-    fn compute_potential(&self, rij: &Vector3<f64>) -> (f64, Vector3<f64>) {
+    fn compute_potential(&self, rij: &Vector3<f64>) -> (f64, Vector3<f64>, Matrix3<f64>) {
         let rij2 = rij.norm_squared();
         let inv_rij2 = 1.0 / rij2;
         let vanderwaals_attraction = (self.sigma.powi(2) * inv_rij2).powi(3);
@@ -40,6 +40,8 @@ impl PairPotential for LennardJones {
 
         let force =
             24.0 * self.epsilon * (2.0 * lj_repulsion - vanderwaals_attraction) * inv_rij2 * rij;
+        
+        let virial = rij * force.transpose();
 
         if self.shift {
             let cutoff_inv2 = (self.sigma / self.rcut).powi(2);
@@ -51,7 +53,7 @@ impl PairPotential for LennardJones {
             potential_energy -= u_cutoff;
         }
 
-        (potential_energy, force)
+        (potential_energy, force, virial)
     }
 
     fn get_rcut(&self) -> f64 {
@@ -82,7 +84,7 @@ impl PotentialManager for LJManager {
                     continue;
                 }
 
-                let (uij, force_ij) = potential.compute_potential(&rij);
+                let (uij, force_ij, _virial) = potential.compute_potential(&rij);
 
                 potential_energy += uij;
                 {
@@ -155,7 +157,7 @@ impl PotentialManager for LJVerletManager {
                                         if rij.norm() > potential.get_rcut() {
                                             continue;
                                         }
-                                        let (uij, force_ij) = potential.compute_potential(&rij);
+                                        let (uij, force_ij, _virial) = potential.compute_potential(&rij);
                                         potential_energy += uij;
                                         {
                                             let mut fi = atoms.forces.column_mut(i);
@@ -224,7 +226,7 @@ impl PotentialManager for LJVOffsetManager {
                                 if rij.norm() > potential.get_rcut() {
                                     continue;
                                 }
-                                let (uij, force_ij) = potential.compute_potential(&rij);
+                                let (uij, force_ij, virial) = potential.compute_potential(&rij);
                                 potential_energy += uij;
                                 {
                                     let mut fi = atoms.forces.column_mut(i);
@@ -232,6 +234,8 @@ impl PotentialManager for LJVOffsetManager {
 
                                     let mut fj = atoms.forces.column_mut(j);
                                     fj += force_ij;
+
+                                    atoms.current_virial += virial;
                                 }
                             }
                         }
@@ -308,7 +312,7 @@ impl PotentialManager for LJVParallelManager {
 
                         if rij.norm() > potential.get_rcut() { continue; }
 
-                        let (uij, force_ij) = potential.compute_potential(&rij);
+                        let (uij, force_ij, _virial) = potential.compute_potential(&rij);
 
                         tpe[tid] += uij;
                         {
@@ -441,7 +445,7 @@ impl PotentialManager for LJVPBuildListManager {
                     }
                 };
 
-                let (uij, force_ij) = potential.compute_potential(&rij);
+                let (uij, force_ij, _virial) = potential.compute_potential(&rij);
                 tpe[i] += uij;
                 tf.column_mut(i).add_assign(-force_ij);
             }

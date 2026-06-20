@@ -43,11 +43,18 @@ impl Atoms {
     }
 
     pub fn kinetic_tensor(&self) -> Matrix3<f64> {
-        &self.velocities * self.velocities.transpose()
+        let mut kinetic_tensor = Matrix3::zeros();
+        for i in 0..self.n_atoms {
+            let mass = self.mass_i(i);
+            let velocity = self.velocities.column(i);
+            kinetic_tensor += mass * velocity * velocity.transpose();
+        }
+        kinetic_tensor
     }
 
     pub fn virial_tensor(&self) -> Matrix3<f64> {
-        &self.positions * self.forces.transpose()
+        // &self.positions * self.forces.transpose()
+        self.current_virial.clone()
     }
 
     pub fn pressure_tensor(&self) -> Matrix3<f64> {

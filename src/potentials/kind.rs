@@ -1,3 +1,5 @@
+use na::Matrix3;
+
 use crate::{
     atoms::new::Atoms,
     potentials::{
@@ -35,7 +37,7 @@ pub enum PairPotentialKind {
 }
 
 impl PairPotential for PairPotentialKind {
-    fn compute_potential(&self, rij: &na::Vector3<f64>) -> (f64, na::Vector3<f64>) {
+    fn compute_potential(&self, rij: &na::Vector3<f64>) -> (f64, na::Vector3<f64>, Matrix3<f64>) {
         match self {
             PairPotentialKind::LennardJones(lj) => lj.compute_potential(rij),
         }

@@ -16,12 +16,12 @@ impl Simulation {
 
         let mut nose_hoover_chain = NHThermostatChain::new_from_args(
             &ctx.nh_chain_args,
-            ctx.atoms.as_ref().ok_or(PisError::NoAtomsDefined)?.n_atoms,
+            ctx.atoms.as_ref().ok_or(PisError::NoAtomsDefined)?.degress_of_freedom(),
         );
         let mut mtk_barostat = MTKBarostat::new_from_args(
             &ctx.mtk_barostat_args,
             &ctx.nh_chain_args,
-            ctx.atoms.as_ref().ok_or(PisError::NoAtomsDefined)?.n_atoms
+            ctx.atoms.as_ref().ok_or(PisError::NoAtomsDefined)?.n_atoms,
         );
 
         let mut dumper = DumpTraj::new(&ctx.dump_args)?;
@@ -59,8 +59,8 @@ impl Simulation {
                 potential
             }
             Ensemble::NPT => {
-                let potential = mgr.verlet_step_npt_mtk(atoms, dt, mtk.as_mut().unwrap(), nhc.as_mut().unwrap());
                 nhc.as_mut().unwrap().calculate_target_temperature(i, steps);
+                let potential = mgr.verlet_step_npt_mtk(atoms, dt, mtk.as_mut().unwrap(), nhc.as_mut().unwrap());
                 potential
             }
         }
@@ -103,16 +103,21 @@ impl Simulation {
             Ensemble::NVE => basic,
             Ensemble::NVT => {
                 let nhc = nhc.as_ref().unwrap();
-                basic + nhc.kinetic_energy() + nhc.potential_energy(atoms.n_atoms)
+                let nhc_dof = (3 * atoms.n_atoms - 3).max(1);
+                basic + nhc.kinetic_energy() + nhc.potential_energy(nhc_dof)
             }
             Ensemble::NPT => {
                 let nhc = nhc.as_ref().unwrap();
                 let mtk = mtk.as_ref().unwrap();
+                let nhc_dof = (3 * atoms.n_atoms - 3).max(1);
+                let baro_dof = 3; // diagonal barostat: 3 independent components
                 basic
                     + nhc.kinetic_energy()
-                    + nhc.potential_energy(atoms.n_atoms)
+                    + nhc.potential_energy(nhc_dof)
                     + mtk.kinetic_energy()
                     + mtk.potential_energy(&atoms.sim_box.h)
+                    + mtk.chain_kinetic_energy()
+                    + mtk.chain_potential_energy(baro_dof)
             }
         }
     }

@@ -1,4 +1,4 @@
-use na::{Matrix3xX, Vector3};
+use na::{Matrix3, Matrix3xX, Vector3};
 use std::collections::HashMap;
 
 use crate::atoms::new::Atoms;
@@ -21,6 +21,7 @@ pub trait PotentialManager: Send + Sync {
             atoms.sim_box.apply_boundary_conditions_pos(r_i);
         }
 
+        atoms.current_virial = Matrix3::zeros();
         atoms.forces = Matrix3xX::zeros(atoms.n_atoms);
 
         let potential_energy = self.compute_potential(atoms);
@@ -40,33 +41,13 @@ pub trait PotentialManager: Send + Sync {
     ) -> f64 {
         // --- First NHC half-step (dt/2) ---
         // Symmetric Trotter:  xi(dt/4) → v(dt/2) → eta(dt/2) → xi(dt/4)
-        let mut kinetic_energy = atoms.kinetic_energy();
-        noose_hoover_chain.compute_forces(kinetic_energy, atoms.n_atoms);
-
-        noose_hoover_chain.propagate_xi_backward(0.25 * dt);
-        let scale = (-0.5 * dt * noose_hoover_chain.xi[0]).exp();
-        atoms.velocities = &atoms.velocities * scale;
-        noose_hoover_chain.propagate_eta(0.5 * dt);
-
-        kinetic_energy *= scale.powi(2);
-        noose_hoover_chain.compute_forces(kinetic_energy, atoms.n_atoms);
-        noose_hoover_chain.propagate_xi_forward(0.25 * dt);
+        noose_hoover_chain.half_step(atoms, dt);
 
         // --- NVE step (full dt) ---
         let potential_energy = self.verlet_step_nve(atoms, dt);
 
         // --- Second NHC half-step (dt/2) ---
-        let mut kinetic_energy = atoms.kinetic_energy();
-        noose_hoover_chain.compute_forces(kinetic_energy, atoms.n_atoms);
-        noose_hoover_chain.propagate_xi_backward(0.25 * dt);
-
-        let scale = (-0.5 * dt * noose_hoover_chain.xi[0]).exp();
-        atoms.velocities = &atoms.velocities * scale;
-        noose_hoover_chain.propagate_eta(0.5 * dt);
-
-        kinetic_energy *= scale.powi(2);
-        noose_hoover_chain.compute_forces(kinetic_energy, atoms.n_atoms);
-        noose_hoover_chain.propagate_xi_forward(0.25 * dt);
+        noose_hoover_chain.half_step(atoms, dt);
 
         potential_energy
     }
@@ -78,27 +59,62 @@ pub trait PotentialManager: Send + Sync {
         mtk_barostat: &mut MTKBarostat,
         noose_hoover_chain: &mut NHThermostatChain,
     ) -> f64 {
-        mtk_barostat.momentum += mtk_barostat.delta_momentum(atoms, dt);
+        // 1. Advance Thermostats (Both particle and barostat NH chains) by dt/2
+        noose_hoover_chain.half_step(atoms, dt);
+        mtk_barostat.update_chain(dt);
 
-        let scale = mtk_barostat.scale(dt, true);
+        // 2. Advance Barostat velocity (driving pressure) by dt/2
+        mtk_barostat.update_velocity(atoms, dt);
 
+        // 3. Scale particle velocities by the MTK factor for dt/2
+        let scale = mtk_barostat.scale_v(dt, atoms.degress_of_freedom());
         atoms.velocities = &scale * &atoms.velocities;
 
-        let scale_h = mtk_barostat.scale(dt, false);
+        // 4. Standard Kick: Advance velocities using current forces for dt/2
+        let a_t = atoms.current_acceleration();
+        atoms.velocities += &a_t * 0.5 * dt;
+
+        // 5. Symmetric Drift: Advance Box and Positions simultaneously
+        let scale_h = mtk_barostat.scale_h(dt);
         atoms.scale_box(&scale_h);
 
-        let potential_energy = self.verlet_step_nvt_nhc(atoms, dt, noose_hoover_chain);
+        // Main drift step
+        atoms.positions += &atoms.velocities * dt;
 
+        for r_i in atoms.positions.column_iter_mut() {
+            atoms.sim_box.apply_boundary_conditions_pos(r_i);
+        }
+
+        // Advance the box matrix and positions by the remaining half-step factor
+        let scale_h = mtk_barostat.scale_h(dt);
+        atoms.scale_box(&scale_h);
+
+        // 6. Force Evaluation at new positions
+        atoms.forces = Matrix3xX::zeros(atoms.n_atoms);
+        atoms.current_virial = Matrix3::zeros();
+        let potential_energy = self.compute_potential(atoms);
+        let a_tdt = atoms.current_acceleration();
+
+        // 7. Standard Kick: Advance velocities using NEW forces for dt/2
+        atoms.velocities += &a_tdt * 0.5 * dt;
+
+        // 8. Scale particle velocities by the MTK factor for remaining dt/2
+        let scale = mtk_barostat.scale_v(dt, atoms.degress_of_freedom());
         atoms.velocities = &scale * &atoms.velocities;
 
-        mtk_barostat.momentum += mtk_barostat.delta_momentum(atoms, dt);
+        // 9. Advance Barostat velocity by remaining dt/2
+        mtk_barostat.update_velocity(atoms, dt);
+
+        // 10. Clean up Thermostats for the final dt/2
+        mtk_barostat.update_chain(dt);
+        noose_hoover_chain.half_step(atoms, dt);
 
         potential_energy
     }
 }
 
 pub trait PairPotential: Send + Sync {
-    fn compute_potential(&self, rij: &Vector3<f64>) -> (f64, Vector3<f64>);
+    fn compute_potential(&self, rij: &Vector3<f64>) -> (f64, Vector3<f64>, Matrix3<f64>);
     fn get_rcut(&self) -> f64;
 }
 
