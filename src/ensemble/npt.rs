@@ -61,7 +61,6 @@ impl MTKBarostat {
 
     pub fn scale_v(&self, dt: f64, particle_n_dof: usize) -> Matrix3<f64> {
         let mut eta_dot_symmetric = symmetrize(&self.velocity);
-        // 3.0 is the no of dimension for iso setup
         let mtk_term2 = (self.velocity.trace() / (particle_n_dof) as f64) * Matrix3::identity();
         eta_dot_symmetric = symmetrize(&(eta_dot_symmetric + mtk_term2));
         (eta_dot_symmetric * -0.5 * dt).exp()
