@@ -64,14 +64,32 @@ pub trait PotentialManager: Send + Sync {
 
         mtk_barostat.update_velocity(atoms, dt);
 
-        let scale_h = mtk_barostat.scale(dt, false);
-        atoms.scale_box(&scale_h);
-        let scale = mtk_barostat.scale(dt, true);
+        let scale = mtk_barostat.scale_v(dt, atoms.degress_of_freedom());
         atoms.velocities = &scale * &atoms.velocities;
 
-        let potential_energy = self.verlet_step_nve(atoms, dt);
+        let a_t = atoms.current_acceleration();
+
+        atoms.velocities += &a_t * 0.5 * dt;
+        let scale_h = mtk_barostat.scale_h(dt);
+        atoms.scale_box(&scale_h);
+
+        atoms.positions += &atoms.velocities * dt;
 
         atoms.scale_box(&scale_h);
+
+        for r_i in atoms.positions.column_iter_mut() {
+            atoms.sim_box.apply_boundary_conditions_pos(r_i);
+        }
+
+        atoms.forces = Matrix3xX::zeros(atoms.n_atoms);
+
+        let potential_energy = self.compute_potential(atoms);
+
+        let a_tdt = atoms.current_acceleration();
+
+        atoms.velocities += &a_tdt * 0.5 * dt;
+
+        let scale = mtk_barostat.scale_v(dt, atoms.degress_of_freedom());
         atoms.velocities = &scale * &atoms.velocities;
 
         mtk_barostat.update_velocity(atoms, dt);

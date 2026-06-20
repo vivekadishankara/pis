@@ -54,14 +54,16 @@ impl MTKBarostat {
         self.velocity += symmetrize(&delta_velocity);
     }
 
-    pub fn scale(&self, dt: f64, velocity_scaling: bool) -> Matrix3<f64> {
+    pub fn scale_h(&self, dt: f64) -> Matrix3<f64> {
+        let eta_dot_symmetric = symmetrize(&self.velocity);
+        (eta_dot_symmetric * 0.5 * dt).exp()
+    }
+
+    pub fn scale_v(&self, dt: f64, particle_n_dof: usize) -> Matrix3<f64> {
         let mut eta_dot_symmetric = symmetrize(&self.velocity);
-        if velocity_scaling {
-            let mtk_term2 = (self.velocity.trace() / 4000 as f64) * Matrix3::identity();
-            eta_dot_symmetric = symmetrize(&(eta_dot_symmetric + mtk_term2));
-        }
-        let factor = if velocity_scaling { -1.0 } else { 1.0 };
-        (eta_dot_symmetric * 0.5 * factor * dt).exp()
+        let mtk_term2 = (self.velocity.trace() / (particle_n_dof) as f64) * Matrix3::identity();
+        eta_dot_symmetric = symmetrize(&(eta_dot_symmetric + mtk_term2));
+        (eta_dot_symmetric * -0.5 * dt).exp()
     }
 
     pub fn kinetic_energy(&self) -> f64 {
@@ -109,7 +111,7 @@ impl MTKBarostat {
     pub fn update_chain(&mut self, dt: f64) {
         // --- First NHC half-step (dt/2) ---
         // Symmetric Trotter:  xi(dt/4) → v(dt/2) → eta(dt/2) → xi(dt/4)
-        let n_dof = 6; // 6 because the barostat has 6 degrees of freedom (3 for scaling and 3 for rotation)
+        let n_dof = 6; // 6 because the barostat has 6 degrees of freedom (3 for scaling and 3 for shear)
         let kinetic_energy = self.kinetic_energy();
         self.thermostat_chain.compute_forces(kinetic_energy, n_dof);
 
