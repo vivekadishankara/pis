@@ -67,8 +67,7 @@ impl MTKBarostat {
     }
 
     pub fn kinetic_energy(&self) -> f64 {
-        // 3.0 due to isotropic barostat
-        self.w * (self.velocity * self.velocity.transpose()).trace() / 2.0 / 3.0
+        self.w * (self.velocity * self.velocity.transpose()).trace() / 2.0
     }
 
     pub fn potential_energy(&self, h: &Matrix3<f64>) -> f64 {
