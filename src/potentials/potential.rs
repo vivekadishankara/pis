@@ -58,20 +58,27 @@ pub trait PotentialManager: Send + Sync {
         mtk_barostat: &mut MTKBarostat,
         noose_hoover_chain: &mut NHThermostatChain,
     ) -> f64 {
-        mtk_barostat.momentum += mtk_barostat.delta_momentum(atoms, dt);
+        mtk_barostat.update_chain(dt);
 
-        let scale = mtk_barostat.scale(dt, true);
+        noose_hoover_chain.half_step(atoms, dt);
 
-        atoms.velocities = &scale * &atoms.velocities;
+        mtk_barostat.update_velocity(atoms, dt);
 
         let scale_h = mtk_barostat.scale(dt, false);
         atoms.scale_box(&scale_h);
-
-        let potential_energy = self.verlet_step_nvt_nhc(atoms, dt, noose_hoover_chain);
-
+        let scale = mtk_barostat.scale(dt, true);
         atoms.velocities = &scale * &atoms.velocities;
 
-        mtk_barostat.momentum += mtk_barostat.delta_momentum(atoms, dt);
+        let potential_energy = self.verlet_step_nve(atoms, dt);
+
+        atoms.scale_box(&scale_h);
+        atoms.velocities = &scale * &atoms.velocities;
+
+        mtk_barostat.update_velocity(atoms, dt);
+
+        noose_hoover_chain.half_step(atoms, dt);
+
+        mtk_barostat.update_chain(dt);
 
         potential_energy
     }

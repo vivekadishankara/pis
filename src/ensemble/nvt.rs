@@ -58,9 +58,9 @@ impl NHThermostatChain {
     }
 
     // Compute generalized thermostat forces
-    pub fn compute_forces(&mut self, kinetic_energy: f64, n_atoms: usize) {
+    pub fn compute_forces(&mut self, kinetic_energy: f64, n_dof: usize) {
         // G1​= 2K − Ndof ​kB ​T
-        let n_dof = (3 * n_atoms - 3).max(1) as f64;
+        let n_dof = n_dof as f64;
         self.g[0] = (2.0 * kinetic_energy - n_dof * KB_KJPERMOLEKELVIN * self.target_temperature) / self.q[0];
 
         for j in 1..self.chain_size {
@@ -152,8 +152,9 @@ impl NHThermostatChain {
     ) {
         // --- First NHC half-step (dt/2) ---
         // Symmetric Trotter:  xi(dt/4) → v(dt/2) → eta(dt/2) → xi(dt/4)
+        let n_dof = (3 * atoms.n_atoms - 3).max(1);
         let mut kinetic_energy = atoms.kinetic_energy();
-        self.compute_forces(kinetic_energy, atoms.n_atoms);
+        self.compute_forces(kinetic_energy, n_dof);
 
         self.propagate_xi_backward(0.25 * dt);
         let scale = (-0.5 * dt * self.xi[0]).exp();
@@ -161,7 +162,7 @@ impl NHThermostatChain {
         self.propagate_eta(0.5 * dt);
 
         kinetic_energy *= scale.powi(2);
-        self.compute_forces(kinetic_energy, atoms.n_atoms);
+        self.compute_forces(kinetic_energy, n_dof);
         self.propagate_xi_forward(0.25 * dt);
     }
 }

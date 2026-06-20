@@ -5,6 +5,7 @@ use crate::{
     constants::KB_KJPERMOLEKELVIN,
     math::symmetrize,
     readers::simulation_context::{MTKBarostatArgs, NHThermostatChainArgs},
+    ensemble::nvt::NHThermostatChain,
 };
 
 // Martyna, Tobias, Klein (1994) "Constant pressure molecular dynamics algorithms". J. Chem. Phys..
@@ -14,10 +15,11 @@ pub struct MTKBarostat {
     #[allow(dead_code)]
     pub group: String,
     pub target_pressure: Matrix3<f64>,
-    // barostat momentum
-    pub momentum: Matrix3<f64>,
+    // barostat velocity
+    pub velocity: Matrix3<f64>,
     // barostat mass
     pub w: f64,
+    thermostat_chain: NHThermostatChain,
 }
 
 impl MTKBarostat {
@@ -27,37 +29,38 @@ impl MTKBarostat {
         target_pressure: Matrix3<f64>,
         tau: f64,
         n_atoms: usize,
-        target_temp: f64,
+        thermostat_chain: NHThermostatChain,
     ) -> Self {
-        let momentum = Matrix3::zeros();
-        let w = ((3 * n_atoms) as f64) * KB_KJPERMOLEKELVIN * target_temp * tau.powi(2);
+        let velocity = Matrix3::zeros();
+        let w = ((n_atoms + 1) as f64) * KB_KJPERMOLEKELVIN * thermostat_chain.target_temperature * tau.powi(2);
 
         Self {
             name,
             group,
             target_pressure,
-            momentum,
+            velocity,
             w,
+            thermostat_chain
         }
     }
 
-    pub fn delta_momentum(&self, atoms: &Atoms, dt: f64) -> Matrix3<f64> {
+    pub fn update_velocity(&mut self, atoms: &Atoms, dt: f64) {
         let instant_pressure = atoms.pressure_tensor();
-        let delta_momentum =
-            (instant_pressure - self.target_pressure) * (atoms.sim_box.volume() * 0.5 * dt);
-        symmetrize(&delta_momentum)
+        let pressure_force =
+            (instant_pressure - self.target_pressure) * (atoms.sim_box.volume()) / self.w;
+        let mtk_correction = Matrix3::identity() * atoms.degress_of_freedom() as f64 * KB_KJPERMOLEKELVIN * self.thermostat_chain.target_temperature / self.w;
+        let delta_velocity = (pressure_force - mtk_correction) * 0.5 * dt;
+        self.velocity += symmetrize(&delta_velocity);
     }
 
     pub fn scale(&self, dt: f64, velocity_scaling: bool) -> Matrix3<f64> {
-        let mut eta_dot = self.momentum / self.w;
-        eta_dot = symmetrize(&eta_dot);
-        // let scale = mat_exp_taylor(&(-eta_dot * 0.5 * dt));
-        let factor = if velocity_scaling { -0.5 } else { 1.0 };
-        (eta_dot * factor * dt).exp()
+        let eta_dot_symmetric = symmetrize(&self.velocity);
+        let factor = if velocity_scaling { -1.0 } else { 1.0 };
+        (eta_dot_symmetric * 0.5 * factor * dt).exp()
     }
 
     pub fn kinetic_energy(&self) -> f64 {
-        (self.momentum * self.momentum.transpose()).trace() / (2.0 * self.w)
+        self.w * (self.velocity * self.velocity.transpose()).trace() / 2.0
     }
 
     pub fn potential_energy(&self, h: &Matrix3<f64>) -> f64 {
@@ -69,6 +72,7 @@ impl MTKBarostat {
         nh_chain_args: &Option<NHThermostatChainArgs>,
         n_atoms: usize,
     ) -> Option<Self> {
+        
         let target_temperature = match nh_chain_args {
             Some(args) => args.start_temperature,
             None => 300.0,
@@ -80,9 +84,37 @@ impl MTKBarostat {
                 args.start_pressure.clone(),
                 args.tau,
                 n_atoms,
-                target_temperature,
+                NHThermostatChain::new_from_args(nh_chain_args, n_atoms).unwrap_or_else(|| {
+                    NHThermostatChain::new(
+                        "barostat_thermostat".to_string(),
+                        "all".to_string(),
+                        target_temperature,
+                        target_temperature,
+                        target_temperature,
+                        args.tau / 10.0,
+                        3,
+                        n_atoms,
+                    )
+                }),
             )),
             None => None,
         }
+    }
+
+    pub fn update_chain(&mut self, dt: f64) {
+        // --- First NHC half-step (dt/2) ---
+        // Symmetric Trotter:  xi(dt/4) → v(dt/2) → eta(dt/2) → xi(dt/4)
+        let n_dof = 6; // 6 because the barostat has 6 degrees of freedom (3 for scaling and 3 for rotation)
+        let kinetic_energy = self.kinetic_energy();
+        self.thermostat_chain.compute_forces(kinetic_energy, n_dof);
+
+        self.thermostat_chain.propagate_xi_backward(0.25 * dt);
+        let scale = (-0.5 * dt * self.thermostat_chain.xi[0]).exp();
+        self.velocity = &self.velocity * scale;
+        self.thermostat_chain.propagate_eta(0.5 * dt);
+
+        let kinetic_energy = self.kinetic_energy();
+        self.thermostat_chain.compute_forces(kinetic_energy, n_dof);
+        self.thermostat_chain.propagate_xi_forward(0.25 * dt);
     }
 }

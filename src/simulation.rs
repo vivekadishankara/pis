@@ -59,8 +59,8 @@ impl Simulation {
                 potential
             }
             Ensemble::NPT => {
-                let potential = mgr.verlet_step_npt_mtk(atoms, dt, mtk.as_mut().unwrap(), nhc.as_mut().unwrap());
                 nhc.as_mut().unwrap().calculate_target_temperature(i, steps);
+                let potential = mgr.verlet_step_npt_mtk(atoms, dt, mtk.as_mut().unwrap(), nhc.as_mut().unwrap());
                 potential
             }
         }
