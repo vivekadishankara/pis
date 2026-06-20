@@ -48,13 +48,18 @@ impl MTKBarostat {
         let instant_pressure = atoms.pressure_tensor();
         let pressure_force =
             (instant_pressure - self.target_pressure) * (atoms.sim_box.volume()) / self.w;
-        let mtk_correction = Matrix3::identity() * atoms.degress_of_freedom() as f64 * KB_KJPERMOLEKELVIN * self.thermostat_chain.target_temperature / self.w;
-        let delta_velocity = (pressure_force - mtk_correction) * 0.5 * dt;
+        let mtk_correction = &atoms.kinetic_tensor().diagonal() / atoms.n_atoms as f64;
+        let mtk_correction = Matrix3::from_diagonal(&mtk_correction) / self.w;
+        let delta_velocity = (pressure_force + mtk_correction) * 0.5 * dt;
         self.velocity += symmetrize(&delta_velocity);
     }
 
     pub fn scale(&self, dt: f64, velocity_scaling: bool) -> Matrix3<f64> {
-        let eta_dot_symmetric = symmetrize(&self.velocity);
+        let mut eta_dot_symmetric = symmetrize(&self.velocity);
+        if velocity_scaling {
+            let mtk_term2 = (self.velocity.trace() / 4000 as f64) * Matrix3::identity();
+            eta_dot_symmetric = symmetrize(&(eta_dot_symmetric + mtk_term2));
+        }
         let factor = if velocity_scaling { -1.0 } else { 1.0 };
         (eta_dot_symmetric * 0.5 * factor * dt).exp()
     }
