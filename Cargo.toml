@@ -1,6 +1,6 @@
 [package]
 name = "pis"
-version = "0.1.0"
+version = "0.2.0"
 edition = "2021"
 authors = ["Vivek Naik <vivek.adishankara@gmail.com>"]
 description = "A molecular dynamics simulator in Rust"
