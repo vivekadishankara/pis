@@ -19,8 +19,6 @@ pub struct MTKBarostat {
     pub velocity: Matrix3<f64>,
     // barostat mass
     pub w: f64,
-    // reference volume at t=0 (for PV work term in the conserved quantity)
-    pub vol0: f64,
     thermostat_chain: NHThermostatChain,
 }
 
@@ -32,7 +30,6 @@ impl MTKBarostat {
         tau: f64,
         n_atoms: usize,
         thermostat_chain: NHThermostatChain,
-        initial_volume: f64,
     ) -> Self {
         let velocity = Matrix3::zeros();
         let w = ((n_atoms + 1) as f64) * KB_KJPERMOLEKELVIN * thermostat_chain.target_temperature * tau.powi(2);
@@ -43,7 +40,6 @@ impl MTKBarostat {
             target_pressure,
             velocity,
             w,
-            vol0: initial_volume,
             thermostat_chain
         }
     }
@@ -52,8 +48,8 @@ impl MTKBarostat {
         let instant_pressure = atoms.pressure_tensor();
         let pressure_force =
             (instant_pressure - self.target_pressure) * (atoms.sim_box.volume()) / self.w;
-        let mtk_correction = &atoms.kinetic_tensor().diagonal() / atoms.n_atoms as f64;
-        let mtk_correction = Matrix3::from_diagonal(&mtk_correction) / self.w;
+        let mtk_correction = &atoms.kinetic_tensor().trace() / atoms.degress_of_freedom() as f64;
+        let mtk_correction = Matrix3::identity() * mtk_correction / self.w;
         let delta_velocity = (pressure_force + mtk_correction) * 0.5 * dt;
         self.velocity += symmetrize(&delta_velocity);
     }
@@ -65,19 +61,21 @@ impl MTKBarostat {
 
     pub fn scale_v(&self, dt: f64, particle_n_dof: usize) -> Matrix3<f64> {
         let mut eta_dot_symmetric = symmetrize(&self.velocity);
+        // 3.0 is the no of dimension for iso setup
         let mtk_term2 = (self.velocity.trace() / (particle_n_dof) as f64) * Matrix3::identity();
         eta_dot_symmetric = symmetrize(&(eta_dot_symmetric + mtk_term2));
         (eta_dot_symmetric * -0.5 * dt).exp()
     }
 
     pub fn kinetic_energy(&self) -> f64 {
-        self.w * (self.velocity * self.velocity.transpose()).trace() / 2.0
+        // 3.0 due to isotropic barostat
+        self.w * (self.velocity * self.velocity.transpose()).trace() / 2.0 / 3.0
     }
 
     pub fn potential_energy(&self, h: &Matrix3<f64>) -> f64 {
         let volume = h.determinant().abs();
         let p_hydro = self.target_pressure.trace() / 3.0;
-        p_hydro * (volume - self.vol0)
+        p_hydro * volume
     }
 
     pub fn chain_kinetic_energy(&self) -> f64 {
@@ -92,7 +90,6 @@ impl MTKBarostat {
         mtk_barostat_args: &Option<MTKBarostatArgs>,
         nh_chain_args: &Option<NHThermostatChainArgs>,
         n_atoms: usize,
-        initial_volume: f64,
     ) -> Option<Self> {
         
         let target_temperature = match nh_chain_args {
@@ -118,7 +115,6 @@ impl MTKBarostat {
                         3, // barostat n_dof: 3 for diagonal barostat
                     )
                 }),
-                initial_volume,
             )),
             None => None,
         }

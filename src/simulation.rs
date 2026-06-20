@@ -18,14 +18,10 @@ impl Simulation {
             &ctx.nh_chain_args,
             ctx.atoms.as_ref().ok_or(PisError::NoAtomsDefined)?.degress_of_freedom(),
         );
-        let initial_volume = ctx.atoms.as_ref()
-            .ok_or(PisError::NoAtomsDefined)?
-            .sim_box.volume();
         let mut mtk_barostat = MTKBarostat::new_from_args(
             &ctx.mtk_barostat_args,
             &ctx.nh_chain_args,
             ctx.atoms.as_ref().ok_or(PisError::NoAtomsDefined)?.n_atoms,
-            initial_volume,
         );
 
         let mut dumper = DumpTraj::new(&ctx.dump_args)?;

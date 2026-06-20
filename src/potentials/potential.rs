@@ -58,45 +58,54 @@ pub trait PotentialManager: Send + Sync {
         mtk_barostat: &mut MTKBarostat,
         noose_hoover_chain: &mut NHThermostatChain,
     ) -> f64 {
+        // 1. Advance Thermostats (Both particle and barostat NH chains) by dt/2
+        noose_hoover_chain.half_step(atoms, dt);
         mtk_barostat.update_chain(dt);
 
-        noose_hoover_chain.half_step(atoms, dt);
-
+        // 2. Advance Barostat velocity (driving pressure) by dt/2
         mtk_barostat.update_velocity(atoms, dt);
 
+        // 3. Scale particle velocities by the MTK factor for dt/2
         let scale = mtk_barostat.scale_v(dt, atoms.degress_of_freedom());
         atoms.velocities = &scale * &atoms.velocities;
 
+        // 4. Standard Kick: Advance velocities using current forces for dt/2
         let a_t = atoms.current_acceleration();
-
         atoms.velocities += &a_t * 0.5 * dt;
+
+        // 5. Symmetric Drift: Advance Box and Positions simultaneously
         let scale_h = mtk_barostat.scale_h(dt);
         atoms.scale_box(&scale_h);
 
+        // Main drift step
         atoms.positions += &atoms.velocities * dt;
-
-        atoms.scale_box(&scale_h);
 
         for r_i in atoms.positions.column_iter_mut() {
             atoms.sim_box.apply_boundary_conditions_pos(r_i);
         }
+        
+        // Advance the box matrix and positions by the remaining half-step factor
+        let scale_h = mtk_barostat.scale_h(dt);
+        atoms.scale_box(&scale_h);
 
+        // 6. Force Evaluation at new positions
         atoms.forces = Matrix3xX::zeros(atoms.n_atoms);
-
         let potential_energy = self.compute_potential(atoms);
-
         let a_tdt = atoms.current_acceleration();
 
+        // 7. Standard Kick: Advance velocities using NEW forces for dt/2
         atoms.velocities += &a_tdt * 0.5 * dt;
 
+        // 8. Scale particle velocities by the MTK factor for remaining dt/2
         let scale = mtk_barostat.scale_v(dt, atoms.degress_of_freedom());
         atoms.velocities = &scale * &atoms.velocities;
 
+        // 9. Advance Barostat velocity by remaining dt/2
         mtk_barostat.update_velocity(atoms, dt);
 
-        noose_hoover_chain.half_step(atoms, dt);
-
+        // 10. Clean up Thermostats for the final dt/2
         mtk_barostat.update_chain(dt);
+        noose_hoover_chain.half_step(atoms, dt);
 
         potential_energy
     }
