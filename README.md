@@ -29,10 +29,12 @@ To trigger an example calculation run this command
 ```
 An output `dump.lammpstrj` is generated which can be viewed in the [OVITO](https://www.ovito.org/) visulation software.
 
-## How to run simulations
-In its current state, PIS takes in a text file written in the lammps data file format.
+## How to use
+
+### As a binary
+PIS takes in a text file written in the lammps data file format.
 ```
-cargo run --release --bin pis -- -i example/input.pis
+cargo run --release --bin pis --features cli -- -i example/input.pis
 ```
 The input parameters have the following meanings
 ```
@@ -41,3 +43,17 @@ Options:
   -h, --help                       Print help
   -V, --version                    Print version
 ```
+
+### As a library
+```
+cargo build --release --lib
+```
+Add to your `Cargo.toml`:
+```toml
+pis = { git = "https://github.com/vivekadishankara/pis", tag = "v0.2.0"}
+```
+Features:
+- `cli` — binary mode: enables CLI parsing (`clap`) and multi-threaded computation (`rayon`)
+- `parallel` — multi-threaded force computation (enabled by default)
+
+The library has zero CLI dependencies.

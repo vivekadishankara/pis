@@ -4,19 +4,24 @@ use crate::{
     atoms::new::Atoms,
     potentials::{
         lennard_jones::{
-            LJManager, LJVOffsetManager, LJVPBuildListManager, LJVParallelManager, LJVerletManager,
+            LJManager, LJVOffsetManager, LJVerletManager,
             LennardJones,
         },
         potential::{PairPotential, PotentialManager},
     },
 };
 
+#[cfg(feature = "parallel")]
+use crate::potentials::lennard_jones::{LJVParallelManager, LJVPBuildListManager};
+
 #[allow(dead_code)]
 pub enum PotentialManagerKind {
     LJManager(LJManager),
     LJVerletManager(LJVerletManager),
     LJVOffsetManager(LJVOffsetManager),
+    #[cfg(feature = "parallel")]
     LJVParallelManager(LJVParallelManager),
+    #[cfg(feature = "parallel")]
     LJVPBuildListManager(LJVPBuildListManager),
 }
 
@@ -26,7 +31,9 @@ impl PotentialManager for PotentialManagerKind {
             Self::LJManager(ljm) => ljm.compute_potential(atoms),
             Self::LJVerletManager(ljvm) => ljvm.compute_potential(atoms),
             Self::LJVOffsetManager(ljvom) => ljvom.compute_potential(atoms),
+            #[cfg(feature = "parallel")]
             Self::LJVParallelManager(ljvpm) => ljvpm.compute_potential(atoms),
+            #[cfg(feature = "parallel")]
             Self::LJVPBuildListManager(ljvpbm) => ljvpbm.compute_potential(atoms),
         }
     }

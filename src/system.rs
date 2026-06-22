@@ -25,11 +25,13 @@ use crate::{
 ///
 /// A typical main then looks like this:
 ///
-/// ```
-/// use crate::system::System;
+/// ```ignore
+/// use pis::system::System;
+/// use pis::errors::Result;
 ///
-/// fn main() {
-///     System::new(path_to_file).read().contextualize().run();
+/// fn main() -> pis::errors::Result<()> {
+///     System::new("input.pis".into()).read()?.contextualize()?.run()?;
+///     Ok(())
 /// }
 /// ```
 pub struct System {

@@ -1,8 +1,14 @@
 #![allow(dead_code)]
-use std::{collections::HashSet, ops::AddAssign, sync::Arc};
+use std::collections::HashSet;
 
-use na::{DVector, Matrix3, Matrix3xX, Vector3};
+use na::{Matrix3, Vector3};
+#[cfg(feature = "parallel")]
+use std::{ops::AddAssign, sync::Arc};
+#[cfg(feature = "parallel")]
+use na::{DVector, Matrix3xX};
+#[cfg(feature = "parallel")]
 use parking_lot::RwLock;
+#[cfg(feature = "parallel")]
 use rayon::iter::{IntoParallelIterator, IntoParallelRefIterator, ParallelIterator};
 
 use crate::atoms::neighbour_list::FORWARD_NEIGHBOUR_OFFSETS;
@@ -249,10 +255,12 @@ impl PotentialManager for LJVOffsetManager {
 
 impl_pair_potential_manager!(LJVOffsetManager);
 
+#[cfg(feature = "parallel")]
 pub struct LJVParallelManager {
     pub table: Table,
 }
 
+#[cfg(feature = "parallel")]
 impl PotentialManager for LJVParallelManager {
     fn compute_potential(&self, atoms: &mut Atoms) -> f64 {
         let max_rcut = self.max_rcut();
@@ -339,12 +347,15 @@ impl PotentialManager for LJVParallelManager {
     }
 }
 
+#[cfg(feature = "parallel")]
 impl_pair_potential_manager!(LJVParallelManager);
 
+#[cfg(feature = "parallel")]
 pub struct LJVPBuildListManager {
     pub table: Table,
 }
 
+#[cfg(feature = "parallel")]
 impl LJVPBuildListManager {
     pub fn build_neighbour_list(&self, atoms: &mut Atoms) -> Vec<Vec<usize>> {
         let max_rcut = self.max_rcut();
@@ -419,6 +430,7 @@ impl LJVPBuildListManager {
     }
 }
 
+#[cfg(feature = "parallel")]
 impl PotentialManager for LJVPBuildListManager {
     fn compute_potential(&self, atoms: &mut Atoms) -> f64 {
         let neighbour_list = self.build_neighbour_list(atoms);
@@ -459,4 +471,5 @@ impl PotentialManager for LJVPBuildListManager {
     }
 }
 
+#[cfg(feature = "parallel")]
 impl_pair_potential_manager!(LJVPBuildListManager);
